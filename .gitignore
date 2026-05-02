@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+pytest_tmp/
+pytest_run_tmp/
+pytest_runs/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environments and secrets
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Local data and generated reports
+data/raw/*
+!data/raw/.gitkeep
+data/processed/
+reports/evaluation/
+reports/figures/
+
+# Model/cache artifacts
+*.pt
+*.pth
+*.bin
+*.safetensors
+.cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
