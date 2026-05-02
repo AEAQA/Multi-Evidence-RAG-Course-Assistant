@@ -59,3 +59,9 @@ The Windows Conda environment triggered a fatal NumPy import exception through `
 Reason:
 
 Course PDFs and chunks may contain prompt injection text. The prompt builder explicitly tells the LLM not to follow instructions inside retrieved context and the mock answer generator only uses selected evidence chunks for answer content and citations.
+
+## Decision 011: Avoid Pandas import in the Streamlit MVP path
+
+Reason:
+
+The Windows Conda environment can trigger a fatal NumPy import exception through Pandas. The MVP dashboard reads evaluation CSV files with the Python standard library and uses Streamlit-native tables plus lightweight HTML bars so local/offline tests remain stable.

@@ -7,7 +7,7 @@ Milestone 0 repository bootstrap implemented.
 Current milestone:
 
 ```text
-Milestone 4: Evaluation pipeline complete
+Milestone 5: Streamlit MVP dashboard complete
 ```
 
 ## What works now
@@ -24,7 +24,7 @@ Milestone 4: Evaluation pipeline complete
 * Text-based PDFs can be loaded with PyMuPDF.
 * Text pages can be split into metadata-preserving text chunks.
 * Mock/interface skeletons exist for LLM, reranker, ASR, and vision caption clients.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 33 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 37 tests.
 * BM25 lexical retrieval works in local/offline mode.
 * Fake deterministic dense retrieval works without external models, GPU, API keys, or network calls.
 * Reciprocal rank fusion merges BM25 and dense results.
@@ -39,12 +39,15 @@ Milestone 4: Evaluation pipeline complete
 * Evaluation runner records per-query latency and writes reports under `reports/evaluation/`.
 * A 10-query synthetic evaluation dataset is available for local smoke runs.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` writes retrieval metrics, latency metrics, and error cases reports.
+* Streamlit MVP dashboard has two pages: RAG Assistant and Evaluation Dashboard.
+* RAG Assistant runs local sample retrieval, grounded mock answer generation, evidence display, and method result panels.
+* Evaluation Dashboard reads or creates local reports and displays metrics, charts, latency, and error cases.
+* Streamlit app smoke check starts successfully in headless mode.
 
 ## What is missing
 
-Remaining items after Milestone 4:
+Remaining items after Milestone 5:
 
-* Streamlit dashboard
 * image-aware ingestion
 
 ## Key commands
@@ -67,4 +70,4 @@ python scripts/dev.py eval
 
 ## Next step
 
-Start Milestone 5: Streamlit MVP dashboard for RAG assistant and evaluation results.
+Start Milestone 6: image-aware ingestion enhancement.

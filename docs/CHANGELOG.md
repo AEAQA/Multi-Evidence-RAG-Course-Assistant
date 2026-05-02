@@ -26,6 +26,9 @@
 * Unit tests for retrieval metric edge cases and aggregation.
 * Milestone 4 evaluation query loader, offline evaluation runner, latency rows, CSV/Markdown report writers, and 10-query synthetic evaluation dataset.
 * Unit tests for evaluation JSONL loading, retrieval method evaluation, latency rows, and report file creation.
+* Milestone 5 Streamlit MVP dashboard with RAG Assistant and Evaluation Dashboard pages.
+* Dashboard data helpers for sample RAG state and local evaluation report loading/creation.
+* Dashboard smoke tests for app import, local RAG state, no-key local mode, and report creation.
 
 ### Changed
 
@@ -35,6 +38,8 @@
 * Expanded `scripts/dev.py clean` to remove pytest/cache artifacts after delivery.
 * Extended answer response schema with `evidence_chunks` and `retrieval_explanation`.
 * Replaced placeholder evaluation entrypoint with local/offline `python scripts/dev.py eval` pipeline.
+* Replaced placeholder Streamlit page with a working evidence-first local dashboard.
+* Dashboard CSV loading uses the Python standard library to avoid Pandas/NumPy import instability on Windows.
 
 ### Known cleanup notes
 

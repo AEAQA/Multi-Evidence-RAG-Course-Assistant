@@ -87,6 +87,23 @@ reports/evaluation/latency_metrics.csv
 reports/evaluation/error_cases.md
 ```
 
+## Dashboard
+
+Run the Streamlit MVP dashboard:
+
+```bash
+python scripts/dev.py run
+```
+
+The app includes:
+
+```text
+RAG Assistant
+Evaluation Dashboard
+```
+
+The RAG Assistant uses the public synthetic sample corpus, shows the grounded mock answer, highlights retrieved evidence, and exposes BM25, Dense, Fusion, and Reranked result tables. The Evaluation Dashboard reads or creates local reports and displays retrieval metrics, latency, and error cases.
+
 ## Safety
 
 Do not commit `.env`, real API keys, private datasets, large model weights, or private course materials.

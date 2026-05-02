@@ -87,3 +87,33 @@ Each evidence item should show:
 * Support local/offline mode.
 * If API is unavailable, show mock answer rather than crashing.
 * If evidence is insufficient, show a clear warning.
+
+## Milestone 5 implementation status
+
+The MVP Streamlit dashboard implements two pages:
+
+* `RAG Assistant`
+* `Evaluation Dashboard`
+
+RAG Assistant behavior:
+
+* uses the public synthetic evaluation corpus;
+* accepts a text query and Top-k control;
+* runs BM25, fake dense, fusion, and mock reranked retrieval;
+* generates a grounded mock answer from reranked evidence;
+* shows evidence before retrieval-debug details;
+* shows BM25, Dense, Fusion, and Reranked result tables.
+
+Evaluation Dashboard behavior:
+
+* reads or creates local evaluation reports;
+* shows method comparison metrics;
+* shows Recall@k, MRR/NDCG, and latency charts;
+* displays the Markdown error case viewer.
+
+MVP constraints:
+
+* no React;
+* no real API key required;
+* no private corpus upload handling yet;
+* no image/table preview beyond schema-compatible placeholders.
