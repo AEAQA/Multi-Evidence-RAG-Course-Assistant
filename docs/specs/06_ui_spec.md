@@ -129,3 +129,16 @@ The evidence panel supports image-aware chunk metadata:
 
 Private PDF upload and corpus management remain deferred. M6 only adds the
 display path for chunks produced by offline image-aware ingestion.
+
+## Milestone 7 API status display
+
+The sidebar displays safe provider status for API-enhanced mode:
+
+* `APP_MODE`
+* provider names and model ids
+* `SILICONFLOW_API_KEY=set` or `missing`
+* SiliconFlow base URL
+
+The UI must never display the real API key. RAG Assistant continues to show
+evidence, final answer, retrieval process tabs, and debug metadata when API
+providers fall back to mock clients.

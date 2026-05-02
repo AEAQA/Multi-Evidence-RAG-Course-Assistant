@@ -32,6 +32,9 @@
 * Milestone 6 image-aware PDF ingestion with image extraction, metadata, mock caption fallback, and unified image chunks.
 * Lightweight PDF table extraction fallback that returns table chunks when PyMuPDF detects simple tables.
 * Unit tests for image-only PDFs, caption failure fallback, no-image PDFs, table failure fallback, image chunk retrieval, and image metadata dashboard rows.
+* Milestone 7 optional SiliconFlow API-enhanced mode with provider factories, LLM client, reranker client, vision caption client, and mock fallbacks.
+* `python scripts/dev.py api-smoke` for optional live API smoke checks.
+* Unit tests for SiliconFlow fake response parsing, API failure fallback, config redaction, and no-key provider fallback.
 
 ### Changed
 
@@ -45,6 +48,8 @@
 * Dashboard CSV loading uses the Python standard library to avoid Pandas/NumPy import instability on Windows.
 * Streamlit evidence display now shows image metadata and thumbnails when extracted image files are available.
 * Fixed retrieval result table formatting to avoid a hidden Pandas dependency in the Streamlit path.
+* Streamlit runtime sidebar now shows provider/model status and redacted SiliconFlow key status.
+* Dashboard query execution now injects provider-created LLM and reranker clients while preserving mock fallback.
 
 ### Known cleanup notes
 

@@ -26,6 +26,7 @@ python scripts/dev.py info
 python scripts/dev.py test
 python scripts/dev.py run
 python scripts/dev.py eval
+python scripts/dev.py api-smoke
 ```
 
 If `conda run` has encoding issues on Windows, call the environment Python directly:
@@ -138,3 +139,43 @@ VISION_PROVIDER=mock
 ```
 
 Real API keys, when added in later milestones, belong only in `.env`.
+
+## Optional SiliconFlow API Mode
+
+Keep `.env.example` committed, but put real secrets only in local `.env`:
+
+```text
+APP_MODE=api
+
+LLM_PROVIDER=siliconflow
+LLM_MODEL=<your SiliconFlow chat model>
+
+RERANKER_PROVIDER=siliconflow
+RERANKER_MODEL=<your SiliconFlow reranker model>
+
+VISION_PROVIDER=mock
+ASR_PROVIDER=mock
+
+SILICONFLOW_API_KEY=<your local key>
+SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+```
+
+Run an optional smoke check:
+
+```bash
+python scripts/dev.py api-smoke
+```
+
+Without a key, the app and smoke command use mock fallback. With a key, the
+Streamlit sidebar should show `SILICONFLOW_API_KEY=set` and must never show the
+real key value.
+
+For final visual checking, run:
+
+```bash
+python scripts/dev.py run
+```
+
+Confirm that RAG Assistant still shows evidence, citations, retrieval method
+tabs, and a final answer. API failures should fall back to mock output instead
+of crashing.

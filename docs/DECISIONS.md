@@ -75,3 +75,12 @@ image occurrence rectangles and lightweight table metadata without new services.
 M6 keeps image/table ingestion offline-first by using mock vision captions,
 caption fallback text, and non-blocking table detection instead of OCR, external
 vision APIs or heavy multimodal retrieval.
+
+## Decision 013: Use provider factories for optional SiliconFlow integration
+
+Reason:
+
+M7 must support real API demos without making the project depend on API keys,
+network access or provider availability. Provider factories keep mock behavior
+as the default, create SiliconFlow clients only when local `.env` is complete,
+and preserve deterministic unit tests by allowing HTTP calls to be faked.

@@ -62,13 +62,8 @@ def _render_sidebar_status(config) -> None:
     st.sidebar.markdown("### Runtime")
     st.sidebar.code(
         "\n".join(
-            [
-                f"APP_MODE={config.app_mode}",
-                f"LLM_PROVIDER={config.llm_provider}",
-                f"RERANKER_PROVIDER={config.reranker_provider}",
-                f"ASR_PROVIDER={config.asr_provider}",
-                f"VISION_PROVIDER={config.vision_provider}",
-            ]
+            f"{key}={value}"
+            for key, value in config.safe_runtime_status().items()
         )
     )
     st.sidebar.markdown("### Corpus")
@@ -81,7 +76,8 @@ def _render_rag_assistant() -> None:
     top_k = st.slider("Top-k evidence", min_value=1, max_value=5, value=5)
 
     if st.button("Run local retrieval", type="primary") or query:
-        state = build_sample_dashboard_state(query, top_k=top_k)
+        config = load_config()
+        state = build_sample_dashboard_state(query, top_k=top_k, config=config)
         _render_answer(state.answer.answer, state.answer.insufficient_evidence)
         _render_evidence(state.answer.evidence_chunks)
         _render_retrieval_process(state.retrieval)
@@ -89,6 +85,7 @@ def _render_rag_assistant() -> None:
             st.write(
                 {
                     "query": state.query,
+                    "provider_status": state.provider_status,
                     "retrieval_explanation": state.answer.retrieval_explanation,
                     "citations": [citation.model_dump() for citation in state.answer.citations],
                 }

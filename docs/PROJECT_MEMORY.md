@@ -2,12 +2,12 @@
 
 ## Current status
 
-Milestone 6 image-aware ingestion implemented.
+Milestone 7 optional API-enhanced mode implemented.
 
 Current milestone:
 
 ```text
-Milestone 6: Image-aware ingestion enhancement complete
+Milestone 7: Optional SiliconFlow API-enhanced mode complete
 ```
 
 ## What works now
@@ -24,7 +24,7 @@ Milestone 6: Image-aware ingestion enhancement complete
 * Text-based PDFs can be loaded with PyMuPDF.
 * Text pages can be split into metadata-preserving text chunks.
 * Mock/interface skeletons exist for LLM, reranker, ASR, and vision caption clients.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 46 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 54 tests.
 * BM25 lexical retrieval works in local/offline mode.
 * Fake deterministic dense retrieval works without external models, GPU, API keys, or network calls.
 * Reciprocal rank fusion merges BM25 and dense results.
@@ -48,12 +48,16 @@ Milestone 6: Image-aware ingestion enhancement complete
 * Image-only PDFs can produce retrievable image chunks.
 * Caption failures, image save failures, no-image PDFs, and table detection failures have non-blocking fallbacks.
 * Streamlit evidence display can show image metadata and local thumbnails when image files exist.
+* Optional SiliconFlow provider clients exist for LLM answer generation, reranking, and best-effort vision captioning.
+* Provider factories create SiliconFlow clients only when `APP_MODE=api`, provider/model settings, and `SILICONFLOW_API_KEY` are present.
+* Missing API configuration or API failures fall back to mock clients.
+* Streamlit runtime status shows provider/model values and redacted `SILICONFLOW_API_KEY=set/missing` only.
+* `python scripts/dev.py api-smoke` is available for optional live API smoke checks.
 
 ## What is missing
 
-Remaining items after Milestone 6:
+Remaining items after Milestone 7:
 
-* optional API-enhanced mode
 * final report and demo packaging
 
 ## Key commands
@@ -66,6 +70,7 @@ python -m streamlit run app/streamlit_app.py
 python scripts/dev.py test
 python scripts/dev.py run
 python scripts/dev.py eval
+python scripts/dev.py api-smoke
 ```
 
 ## Known issues
@@ -76,4 +81,4 @@ python scripts/dev.py eval
 
 ## Next step
 
-Start Milestone 7: optional API-enhanced mode.
+Start Milestone 8: final report and demo packaging.

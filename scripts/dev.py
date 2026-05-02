@@ -6,6 +6,7 @@ python scripts/dev.py info
 python scripts/dev.py test
 python scripts/dev.py run
 python scripts/dev.py eval
+python scripts/dev.py api-smoke
 python scripts/dev.py clean
 
 This script is intended for both human developers and coding agents.
@@ -93,6 +94,12 @@ def cmd_eval(_: argparse.Namespace) -> int:
     return run_command([sys.executable, "-m", module])
 
 
+def cmd_api_smoke(_: argparse.Namespace) -> int:
+    """Run optional API-enhanced smoke check."""
+    module = "rag_project.api_smoke"
+    return run_command([sys.executable, "-m", module])
+
+
 def cmd_clean(_: argparse.Namespace) -> int:
     """Remove common local cache/output directories."""
     targets = [
@@ -147,6 +154,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     eval_parser = subparsers.add_parser("eval", help="Run evaluation.")
     eval_parser.set_defaults(func=cmd_eval)
+
+    api_smoke_parser = subparsers.add_parser(
+        "api-smoke", help="Run optional API smoke check."
+    )
+    api_smoke_parser.set_defaults(func=cmd_api_smoke)
 
     clean_parser = subparsers.add_parser("clean", help="Clean local caches and reports.")
     clean_parser.set_defaults(func=cmd_clean)

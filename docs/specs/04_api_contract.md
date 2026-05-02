@@ -10,9 +10,11 @@ No test should require real API keys.
 
 ```text
 APP_MODE=local
+API_TIMEOUT_SECONDS=30
 
 OPENAI_API_KEY=xxx
 SILICONFLOW_API_KEY=xxx
+SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
 ANTHROPIC_API_KEY=xxx
 
 LLM_PROVIDER=mock
@@ -179,4 +181,41 @@ Milestone 3 includes interface and mock skeletons for:
 * `ASRClient`
 * `VisionCaptionClient`
 
-Real providers are not wired yet. API keys remain optional and should be supplied only through local `.env` values copied from `.env.example`.
+Milestone 7 adds optional SiliconFlow providers. API keys remain optional and
+should be supplied only through local `.env` values copied from `.env.example`.
+
+## Milestone 7 API-enhanced provider contract
+
+SiliconFlow is the first optional real provider. Local/offline mode remains the
+default and must work without keys.
+
+Provider selection:
+
+* `APP_MODE=local` always uses mock-safe behavior.
+* `APP_MODE=api` plus `*_PROVIDER=siliconflow`, model id, and
+  `SILICONFLOW_API_KEY` enables SiliconFlow for that provider.
+* incomplete config, missing key, API errors, response parsing errors or network
+  failures fall back to mock clients.
+* UI and logs may show `SILICONFLOW_API_KEY=set` or `missing`, but must never
+  display the real key.
+
+SiliconFlow LLM:
+
+* calls `POST {SILICONFLOW_BASE_URL}/chat/completions`;
+* sends Bearer-token authentication;
+* uses grounded prompts built from selected evidence chunks;
+* returns `AnswerResponse` with citations and evidence metadata.
+
+SiliconFlow reranker:
+
+* calls `POST {SILICONFLOW_BASE_URL}/rerank`;
+* sends `model`, `query`, and `documents`;
+* maps response indexes back to local chunk IDs.
+
+Vision caption:
+
+* may use SiliconFlow chat completions with image data URLs if configured;
+* defaults to mock in `.env.example`;
+* must fall back to `MockVisionCaptionClient` on any failure.
+
+ASR remains a mock fallback in M7. Real ASR is an optional later integration.

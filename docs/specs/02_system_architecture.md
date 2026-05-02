@@ -139,6 +139,18 @@ optional ASR API
 optional vision caption API
 ```
 
+Milestone 7 uses provider factories to keep API-enhanced mode optional:
+
+```text
+AppConfig
+→ provider factory
+→ SiliconFlow LLM/reranker/vision client when configured
+→ mock fallback when config is missing or API calls fail
+```
+
+Unit tests must not call external services. Live API checks are limited to
+`python scripts/dev.py api-smoke`.
+
 ## Design priorities
 
 1. Text-only RAG baseline first.

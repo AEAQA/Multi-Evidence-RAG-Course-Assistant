@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from rag_project.config import AppConfig, load_config
 from rag_project.evaluation.loader import load_evaluation_queries
 from rag_project.evaluation.runner import (
     evaluate_retrieval_methods,
@@ -14,6 +15,7 @@ from rag_project.evaluation.runner import (
 )
 from rag_project.evaluation.sample_corpus import build_sample_evaluation_chunks
 from rag_project.generation.answer_generator import AnswerGenerator
+from rag_project.providers import create_llm_client, create_reranker_client
 from rag_project.retrieval.pipeline import RetrievalPipeline
 from rag_project.schemas import AnswerResponse, RetrievalPipelineOutput
 
@@ -28,6 +30,7 @@ class DashboardState(BaseModel):
     query: str
     retrieval: RetrievalPipelineOutput
     answer: AnswerResponse
+    provider_status: dict[str, str] = {}
 
 
 class EvaluationReportData(BaseModel):
@@ -38,14 +41,31 @@ class EvaluationReportData(BaseModel):
     error_cases_markdown: str
 
 
-def build_sample_dashboard_state(query: str, top_k: int = 5) -> DashboardState:
+def build_sample_dashboard_state(
+    query: str,
+    top_k: int = 5,
+    *,
+    config: AppConfig | None = None,
+) -> DashboardState:
     """Run local retrieval and mock answer generation over the sample corpus."""
+    runtime_config = config or load_config()
     chunks = build_sample_evaluation_chunks()
-    retrieval = RetrievalPipeline(chunks).search(query, top_k=top_k)
-    answer = AnswerGenerator(max_evidence=top_k).generate(
+    retrieval = RetrievalPipeline(
+        chunks,
+        reranker=create_reranker_client(runtime_config),
+    ).search(query, top_k=top_k)
+    answer = AnswerGenerator(
+        llm_client=create_llm_client(runtime_config),
+        max_evidence=top_k,
+    ).generate(
         query, retrieval.reranked_results
     )
-    return DashboardState(query=query, retrieval=retrieval, answer=answer)
+    return DashboardState(
+        query=query,
+        retrieval=retrieval,
+        answer=answer,
+        provider_status=runtime_config.safe_runtime_status(),
+    )
 
 
 def load_or_create_evaluation_reports(
