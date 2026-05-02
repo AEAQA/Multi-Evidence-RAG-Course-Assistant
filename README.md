@@ -6,7 +6,7 @@ This is not a generic chatbot. The system retrieves evidence from local study ma
 
 ## Current Status
 
-Milestone 2 retrieval baselines are implemented.
+Milestone 6 image-aware ingestion is implemented.
 
 ## Environment
 
@@ -103,6 +103,23 @@ Evaluation Dashboard
 ```
 
 The RAG Assistant uses the public synthetic sample corpus, shows the grounded mock answer, highlights retrieved evidence, and exposes BM25, Dense, Fusion, and Reranked result tables. The Evaluation Dashboard reads or creates local reports and displays retrieval metrics, latency, and error cases.
+
+## Image-Aware PDF Ingestion
+
+The original text-only PDF loader remains available through `load_pdf()`.
+Milestone 6 adds `load_pdf_chunks()` for unified text, image, and lightweight
+table chunks:
+
+```python
+from rag_project.ingestion import load_pdf_chunks
+
+chunks = load_pdf_chunks("data/raw/lecture.pdf")
+```
+
+Image chunks include local image path, page, source file, bbox, nearby text, and
+mock/fallback caption metadata. Caption failures, image save failures, no-image
+PDFs, and table detection failures are non-blocking. Extracted images are saved
+under `data/processed/images/`, which is ignored by git.
 
 ## Safety
 

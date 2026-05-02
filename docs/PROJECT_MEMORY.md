@@ -2,12 +2,12 @@
 
 ## Current status
 
-Milestone 0 repository bootstrap implemented.
+Milestone 6 image-aware ingestion implemented.
 
 Current milestone:
 
 ```text
-Milestone 5: Streamlit MVP dashboard complete
+Milestone 6: Image-aware ingestion enhancement complete
 ```
 
 ## What works now
@@ -24,7 +24,7 @@ Milestone 5: Streamlit MVP dashboard complete
 * Text-based PDFs can be loaded with PyMuPDF.
 * Text pages can be split into metadata-preserving text chunks.
 * Mock/interface skeletons exist for LLM, reranker, ASR, and vision caption clients.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 37 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 46 tests.
 * BM25 lexical retrieval works in local/offline mode.
 * Fake deterministic dense retrieval works without external models, GPU, API keys, or network calls.
 * Reciprocal rank fusion merges BM25 and dense results.
@@ -43,12 +43,18 @@ Milestone 5: Streamlit MVP dashboard complete
 * RAG Assistant runs local sample retrieval, grounded mock answer generation, evidence display, and method result panels.
 * Evaluation Dashboard reads or creates local reports and displays metrics, charts, latency, and error cases.
 * Streamlit app smoke check starts successfully in headless mode.
+* Image-aware PDF ingestion can extract embedded PDF images into `image` chunks with image path, bbox, nearby text, mock/fallback caption, and retrievable text.
+* `load_pdf_chunks()` can return mixed text, image, and lightweight table chunks while preserving the original `load_pdf()` text-page behavior.
+* Image-only PDFs can produce retrievable image chunks.
+* Caption failures, image save failures, no-image PDFs, and table detection failures have non-blocking fallbacks.
+* Streamlit evidence display can show image metadata and local thumbnails when image files exist.
 
 ## What is missing
 
-Remaining items after Milestone 5:
+Remaining items after Milestone 6:
 
-* image-aware ingestion
+* optional API-enhanced mode
+* final report and demo packaging
 
 ## Key commands
 
@@ -70,4 +76,4 @@ python scripts/dev.py eval
 
 ## Next step
 
-Start Milestone 6: image-aware ingestion enhancement.
+Start Milestone 7: optional API-enhanced mode.

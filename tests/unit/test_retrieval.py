@@ -81,3 +81,23 @@ def test_retrieval_pipeline_returns_all_m2_baselines() -> None:
     assert output.fusion_results
     assert output.reranked_results
     assert all(result.method == "reranked" for result in output.reranked_results)
+
+
+def test_retrieval_pipeline_accepts_image_chunks() -> None:
+    image_chunk = Chunk(
+        chunk_id="doc001_page002_image_0001",
+        doc_id="doc001",
+        source_file="lecture.pdf",
+        page=2,
+        type="image",
+        text="Mock caption based on nearby text: convolutional network architecture",
+        metadata=ChunkMetadata(
+            image_path="data/processed/images/doc001_p002_img001.png",
+            caption="Mock caption based on nearby text: convolutional network architecture",
+            nearby_text="The figure shows a convolutional network architecture.",
+        ),
+    )
+
+    output = RetrievalPipeline([image_chunk]).search("convolutional network", top_k=1)
+
+    assert output.reranked_results[0].chunk.type == "image"

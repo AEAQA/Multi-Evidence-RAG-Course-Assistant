@@ -117,3 +117,15 @@ MVP constraints:
 * no real API key required;
 * no private corpus upload handling yet;
 * no image/table preview beyond schema-compatible placeholders.
+
+## Milestone 6 evidence display
+
+The evidence panel supports image-aware chunk metadata:
+
+* image chunks can show `image_path`, `bbox`, `caption`, and `nearby_text`;
+* if the extracted image file exists locally, Streamlit can render a small thumbnail;
+* table chunks can show `table_html` preview text;
+* retrieval result tables include image path, caption, and bbox columns when present.
+
+Private PDF upload and corpus management remain deferred. M6 only adds the
+display path for chunks produced by offline image-aware ingestion.

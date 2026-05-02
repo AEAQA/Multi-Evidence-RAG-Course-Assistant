@@ -177,3 +177,45 @@ Failure fallback:
 * empty corpora return empty result lists;
 * non-positive `top_k` returns an empty result list;
 * dense retrieval does not download models, use GPU, require API keys, or access the network.
+
+## Milestone 6 image-aware ingestion contract
+
+Image-aware PDF ingestion adds a new chunk-level entrypoint:
+
+```python
+load_pdf_chunks(
+    pdf_path,
+    include_images=True,
+    include_tables=True,
+    image_output_dir="data/processed/images",
+)
+```
+
+The original `load_pdf()` text-page contract remains unchanged.
+
+Image chunks:
+
+* use `type="image"`;
+* store extracted image files under `metadata.image_path`;
+* store page occurrence bounds under `metadata.bbox`;
+* store nearby page text under `metadata.nearby_text`;
+* store mock or fallback captions under `metadata.caption`;
+* use caption plus nearby text as `text` so image chunks can enter BM25, dense, fusion, and reranked retrieval.
+
+Table chunks:
+
+* use `type="table"`;
+* use lightweight PyMuPDF table detection only;
+* store text fallback in `text`;
+* store simple HTML fallback in `metadata.table_html`;
+* may be absent when table detection is not available or no table is found.
+
+Failure fallback:
+
+* no images return an empty image chunk list;
+* image save failure skips that image and continues;
+* image output directory creation failure returns an empty image chunk list;
+* caption failure stores `Image extracted from PDF.` and does not block ingestion;
+* table detection failure returns an empty table chunk list;
+* text extraction failure does not block image/table chunks;
+* if text, image, and table extraction all produce no chunks, `load_pdf_chunks()` raises `ValueError`.

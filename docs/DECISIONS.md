@@ -65,3 +65,13 @@ Course PDFs and chunks may contain prompt injection text. The prompt builder exp
 Reason:
 
 The Windows Conda environment can trigger a fatal NumPy import exception through Pandas. The MVP dashboard reads evaluation CSV files with the Python standard library and uses Streamlit-native tables plus lightweight HTML bars so local/offline tests remain stable.
+
+## Decision 012: Use PyMuPDF best-effort image and table extraction for M6
+
+Reason:
+
+PyMuPDF is already part of the project environment and can extract image files,
+image occurrence rectangles and lightweight table metadata without new services.
+M6 keeps image/table ingestion offline-first by using mock vision captions,
+caption fallback text, and non-blocking table detection instead of OCR, external
+vision APIs or heavy multimodal retrieval.

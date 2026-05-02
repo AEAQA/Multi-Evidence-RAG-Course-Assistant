@@ -158,6 +158,18 @@ Mock clients must:
 * be suitable for unit and integration tests;
 * avoid network calls.
 
+## Milestone 6 vision fallback
+
+Image-aware ingestion calls `VisionCaptionClient.caption()` only through the
+interface. Local mode uses `MockVisionCaptionClient`.
+
+If captioning raises an exception or returns empty text:
+
+* ingestion does not fail;
+* `metadata.caption` falls back to `Image extracted from PDF.`;
+* `Chunk.text` uses the fallback caption plus nearby page text when available;
+* no API key, GPU, model download or network call is required.
+
 ## MVP interface status
 
 Milestone 3 includes interface and mock skeletons for:

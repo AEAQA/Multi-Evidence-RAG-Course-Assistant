@@ -29,6 +29,9 @@
 * Milestone 5 Streamlit MVP dashboard with RAG Assistant and Evaluation Dashboard pages.
 * Dashboard data helpers for sample RAG state and local evaluation report loading/creation.
 * Dashboard smoke tests for app import, local RAG state, no-key local mode, and report creation.
+* Milestone 6 image-aware PDF ingestion with image extraction, metadata, mock caption fallback, and unified image chunks.
+* Lightweight PDF table extraction fallback that returns table chunks when PyMuPDF detects simple tables.
+* Unit tests for image-only PDFs, caption failure fallback, no-image PDFs, table failure fallback, image chunk retrieval, and image metadata dashboard rows.
 
 ### Changed
 
@@ -40,6 +43,8 @@
 * Replaced placeholder evaluation entrypoint with local/offline `python scripts/dev.py eval` pipeline.
 * Replaced placeholder Streamlit page with a working evidence-first local dashboard.
 * Dashboard CSV loading uses the Python standard library to avoid Pandas/NumPy import instability on Windows.
+* Streamlit evidence display now shows image metadata and thumbnails when extracted image files are available.
+* Fixed retrieval result table formatting to avoid a hidden Pandas dependency in the Streamlit path.
 
 ### Known cleanup notes
 

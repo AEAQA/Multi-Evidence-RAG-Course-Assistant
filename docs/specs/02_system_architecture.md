@@ -25,6 +25,22 @@ Raw documents
 → Evaluation
 ```
 
+## Milestone 6 image-aware ingestion path
+
+```text
+PDF
+→ text extraction with existing PyMuPDF loader
+→ image occurrence extraction with image files, bbox and nearby text
+→ lightweight table detection with text/html fallback
+→ unified Chunk list
+→ BM25 / fake dense / fusion / reranked retrieval
+```
+
+The image-aware path is best-effort and offline-first. Images use mock caption
+fallbacks and tables use PyMuPDF metadata/text extraction only. OCR, heavy
+multimodal embeddings and external vision APIs remain out of scope until later
+milestones.
+
 ## RAG pipeline
 
 ```text

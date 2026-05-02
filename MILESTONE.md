@@ -11,14 +11,15 @@ Completed:
 * Milestone 4 step 1: Evaluation Metrics Foundation
 * Milestone 4: Evaluation Pipeline
 * Milestone 5: Streamlit MVP Dashboard
+* Milestone 6: Image-Aware Ingestion Enhancement
 
 Next:
 
-* Milestone 6: Image-Aware Ingestion Enhancement
+* Milestone 7: Optional API-Enhanced Mode
 
 ## Summary
 
-当前项目已完成到 `Milestone 5: Streamlit MVP Dashboard`。初始只读检查结果：
+当前项目已完成到 `Milestone 6: Image-Aware Ingestion Enhancement`。初始只读检查结果：
 
 - 系统：Windows。
 - Conda：已安装，`conda 25.9.1`。

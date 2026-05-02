@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import streamlit as st
 
 from rag_project.config import load_config
 from rag_project.evaluation.sample_corpus import build_sample_evaluation_chunks
-from rag_project.schemas import RetrievalResult
+from rag_project.schemas import Chunk, RetrievalResult
 from rag_project.ui.dashboard_data import (
     build_sample_dashboard_state,
     load_or_create_evaluation_reports,
@@ -120,6 +122,8 @@ def _render_evidence(chunks) -> None:
             """,
             unsafe_allow_html=True,
         )
+        _render_chunk_metadata(chunk)
+        _render_chunk_media(chunk)
 
 
 def _render_retrieval_process(retrieval) -> None:
@@ -169,6 +173,7 @@ def _render_evaluation_dashboard() -> None:
 def _results_to_frame(results: list[RetrievalResult]) -> list[dict[str, object]]:
     rows = []
     for result in results:
+        metadata = result.chunk.metadata
         rows.append(
             {
                 "rank": result.rank,
@@ -178,9 +183,52 @@ def _results_to_frame(results: list[RetrievalResult]) -> list[dict[str, object]]
                 "page": result.chunk.page,
                 "type": result.chunk.type,
                 "preview": result.chunk.text[:160],
+                "image_path": metadata.image_path or "",
+                "caption": metadata.caption or "",
+                "bbox": metadata.bbox or "",
             }
         )
-    return pd.DataFrame(rows)
+    return rows
+
+
+def _render_chunk_metadata(chunk: Chunk) -> None:
+    rows = _chunk_metadata_rows(chunk)
+    if not rows:
+        return
+    st.markdown(
+        "<div class=\"metadata-grid\">"
+        + "".join(
+            f"<div><b>{_escape_preview(label)}</b><span>{_escape_preview(value)}</span></div>"
+            for label, value in rows
+        )
+        + "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def _render_chunk_media(chunk: Chunk) -> None:
+    image_path = chunk.metadata.image_path
+    if not image_path:
+        return
+    path = Path(image_path)
+    if path.exists():
+        st.image(str(path), caption=chunk.metadata.caption or chunk.chunk_id, width=220)
+
+
+def _chunk_metadata_rows(chunk: Chunk) -> list[tuple[str, str]]:
+    metadata = chunk.metadata
+    rows = []
+    if metadata.image_path:
+        rows.append(("image_path", metadata.image_path))
+    if metadata.bbox:
+        rows.append(("bbox", ", ".join(f"{value:.1f}" for value in metadata.bbox)))
+    if metadata.caption:
+        rows.append(("caption", metadata.caption))
+    if metadata.nearby_text:
+        rows.append(("nearby_text", metadata.nearby_text[:220]))
+    if metadata.table_html:
+        rows.append(("table", metadata.table_html[:220]))
+    return rows
 
 
 def _summarize_metrics(rows: list[dict[str, str]]) -> list[dict[str, object]]:
@@ -342,6 +390,28 @@ def _inject_style() -> None:
         .chunk-text {
           color: var(--ink);
           line-height: 1.45;
+        }
+        .metadata-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+          gap: .35rem .65rem;
+          margin: -.2rem 0 .8rem 3.85rem;
+          font-size: .82rem;
+        }
+        .metadata-grid div {
+          border: 1px solid var(--line);
+          background: rgba(255,255,255,.42);
+          padding: .35rem .45rem;
+        }
+        .metadata-grid b {
+          color: var(--amber);
+          display: block;
+          font-family: "Consolas", monospace;
+          font-size: .74rem;
+        }
+        .metadata-grid span {
+          color: var(--ink);
+          overflow-wrap: anywhere;
         }
         .metric-line {
           display: grid;
