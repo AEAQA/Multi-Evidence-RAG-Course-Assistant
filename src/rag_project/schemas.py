@@ -53,6 +53,8 @@ class AnswerResponse(BaseModel):
     answer: str
     citations: list[Citation] = Field(default_factory=list)
     insufficient_evidence: bool = False
+    evidence_chunks: list[Chunk] = Field(default_factory=list)
+    retrieval_explanation: str = ""
 
 
 class RerankResult(BaseModel):

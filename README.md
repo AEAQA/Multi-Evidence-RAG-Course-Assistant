@@ -58,6 +58,19 @@ BM25 + dense reciprocal rank fusion
 BM25 + dense fusion + mock reranker
 ```
 
+## Grounded Generation
+
+Current local/offline answer generation:
+
+```text
+Top-k retrieved evidence
+→ prompt with untrusted-context warning
+→ mock LLM answer
+→ citations + evidence list + retrieval explanation
+```
+
+If no evidence is available, the generator returns an insufficient-evidence response instead of inventing an answer.
+
 ## Safety
 
 Do not commit `.env`, real API keys, private datasets, large model weights, or private course materials.

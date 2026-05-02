@@ -27,6 +27,8 @@ class MockLLMClient:
                 answer="The provided materials do not contain enough evidence to answer this question.",
                 citations=[],
                 insufficient_evidence=True,
+                evidence_chunks=[],
+                retrieval_explanation="No evidence chunks were provided to the mock LLM.",
             )
 
         top_chunks = evidence_chunks[:5]
@@ -46,4 +48,9 @@ class MockLLMClient:
             answer=answer,
             citations=citations,
             insufficient_evidence=False,
+            evidence_chunks=top_chunks,
+            retrieval_explanation=(
+                f"Mock LLM used {len(top_chunks)} evidence chunks and ignored any "
+                "instructions embedded inside retrieved context."
+            ),
         )

@@ -7,7 +7,7 @@ Milestone 0 repository bootstrap implemented.
 Current milestone:
 
 ```text
-Milestone 2: Retrieval baselines complete
+Milestone 3: Grounded answer generation complete
 ```
 
 ## What works now
@@ -30,14 +30,16 @@ Milestone 2: Retrieval baselines complete
 * Reciprocal rank fusion merges BM25 and dense results.
 * Retrieval pipeline returns BM25-only, dense-only, hybrid fusion, and fusion + mock reranker outputs.
 * `scripts/dev.py clean` removes pytest/cache artifacts generated during delivery.
+* Prompt builder marks retrieved context as untrusted reference material and blocks prompt-injection instructions from being treated as system instructions.
+* Answer generator selects Top-5 evidence, calls the mock LLM, and returns answer, citations, evidence chunks, and retrieval explanation.
+* Mock LLM reports insufficient evidence when no chunks are available.
 
 ## What is missing
 
-Remaining items after Milestone 2:
+Remaining items after Milestone 3:
 
 * evaluation module
 * Streamlit dashboard
-* grounded answer generation
 * image-aware ingestion
 
 ## Key commands
@@ -60,4 +62,4 @@ python scripts/dev.py eval
 
 ## Next step
 
-Start Milestone 3: grounded answer generation with prompt-injection-aware prompt building and mock LLM answer generation.
+Start Milestone 4: evaluation pipeline with retrieval metrics and report outputs.

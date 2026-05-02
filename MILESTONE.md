@@ -7,14 +7,15 @@ Completed:
 * Milestone 0: Repository Bootstrap And Environment Fix
 * Milestone 1: Text/PDF Ingestion MVP
 * Milestone 2: Retrieval Baselines
+* Milestone 3: Grounded Answer Generation
 
 Next:
 
-* Milestone 3: Grounded Answer Generation
+* Milestone 4: Evaluation Pipeline
 
 ## Summary
 
-当前项目已完成到 `Milestone 2: Retrieval Baselines`。初始只读检查结果：
+当前项目已完成到 `Milestone 3: Grounded Answer Generation`。初始只读检查结果：
 
 - 系统：Windows。
 - Conda：已安装，`conda 25.9.1`。

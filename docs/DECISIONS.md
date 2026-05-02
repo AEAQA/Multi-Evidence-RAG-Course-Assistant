@@ -53,3 +53,9 @@ Hashing vectors provide deterministic dense-like behavior without model download
 Reason:
 
 The Windows Conda environment triggered a fatal NumPy import exception through `rank-bm25`, which cannot be caught inside Python. A small pure-Python BM25 implementation keeps the lexical baseline deterministic and testable while preserving the intended BM25 behavior.
+
+## Decision 010: Treat retrieved context as untrusted reference material
+
+Reason:
+
+Course PDFs and chunks may contain prompt injection text. The prompt builder explicitly tells the LLM not to follow instructions inside retrieved context and the mock answer generator only uses selected evidence chunks for answer content and citations.
