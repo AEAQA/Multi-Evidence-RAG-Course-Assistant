@@ -7,7 +7,7 @@ Milestone 0 repository bootstrap implemented.
 Current milestone:
 
 ```text
-Milestone 3: Grounded answer generation complete
+Milestone 4: Evaluation pipeline complete
 ```
 
 ## What works now
@@ -24,7 +24,7 @@ Milestone 3: Grounded answer generation complete
 * Text-based PDFs can be loaded with PyMuPDF.
 * Text pages can be split into metadata-preserving text chunks.
 * Mock/interface skeletons exist for LLM, reranker, ASR, and vision caption clients.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 19 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 33 tests.
 * BM25 lexical retrieval works in local/offline mode.
 * Fake deterministic dense retrieval works without external models, GPU, API keys, or network calls.
 * Reciprocal rank fusion merges BM25 and dense results.
@@ -33,12 +33,17 @@ Milestone 3: Grounded answer generation complete
 * Prompt builder marks retrieved context as untrusted reference material and blocks prompt-injection instructions from being treated as system instructions.
 * Answer generator selects Top-5 evidence, calls the mock LLM, and returns answer, citations, evidence chunks, and retrieval explanation.
 * Mock LLM reports insufficient evidence when no chunks are available.
+* Retrieval metrics foundation is implemented: Recall@1/3/5, MRR@5, NDCG@5, one-query evaluation, and mean metric aggregation.
+* Evaluation query loader reads `data/eval/queries.jsonl`.
+* Offline evaluation runner compares BM25, dense, fusion, and reranked retrieval.
+* Evaluation runner records per-query latency and writes reports under `reports/evaluation/`.
+* A 10-query synthetic evaluation dataset is available for local smoke runs.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` writes retrieval metrics, latency metrics, and error cases reports.
 
 ## What is missing
 
-Remaining items after Milestone 3:
+Remaining items after Milestone 4:
 
-* evaluation module
 * Streamlit dashboard
 * image-aware ingestion
 
@@ -62,4 +67,4 @@ python scripts/dev.py eval
 
 ## Next step
 
-Start Milestone 4: evaluation pipeline with retrieval metrics and report outputs.
+Start Milestone 5: Streamlit MVP dashboard for RAG assistant and evaluation results.

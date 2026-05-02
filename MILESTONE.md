@@ -8,14 +8,16 @@ Completed:
 * Milestone 1: Text/PDF Ingestion MVP
 * Milestone 2: Retrieval Baselines
 * Milestone 3: Grounded Answer Generation
+* Milestone 4 step 1: Evaluation Metrics Foundation
+* Milestone 4: Evaluation Pipeline
 
 Next:
 
-* Milestone 4: Evaluation Pipeline
+* Milestone 5: Streamlit MVP Dashboard
 
 ## Summary
 
-当前项目已完成到 `Milestone 3: Grounded Answer Generation`。初始只读检查结果：
+当前项目已完成到 `Milestone 4: Evaluation Pipeline`。初始只读检查结果：
 
 - 系统：Windows。
 - Conda：已安装，`conda 25.9.1`。

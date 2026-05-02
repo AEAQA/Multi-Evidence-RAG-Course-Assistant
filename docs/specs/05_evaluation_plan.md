@@ -75,6 +75,35 @@ Record average retrieval latency for each method:
 latency_ms
 ```
 
+## Milestone 4 implementation status
+
+Milestone 4 implements a local/offline retrieval evaluation pipeline.
+
+Metric functions:
+
+* `recall_at_k`
+* `mrr_at_k`
+* `ndcg_at_k`
+* `evaluate_retrieval_run`
+* `mean_metrics`
+
+Runner behavior:
+
+* loads `data/eval/queries.jsonl`;
+* evaluates `bm25`, `dense`, `fusion`, and `reranked`;
+* records per-query latency in milliseconds;
+* writes `retrieval_metrics.csv`, `latency_metrics.csv`, and `error_cases.md`;
+* uses a small public synthetic corpus for offline smoke runs.
+
+Fallback and test policy:
+
+* metric calculations are unit-tested;
+* invalid JSONL rows raise `ValueError`;
+* empty relevant sets return `0.0`;
+* non-positive `k` returns `0.0`;
+* binary relevance is used for NDCG;
+* no API keys, model downloads, GPU, or network calls are required.
+
 ### Optional cost
 
 For API-enhanced mode, estimate:

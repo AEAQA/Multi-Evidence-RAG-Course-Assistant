@@ -62,5 +62,3 @@ Before coding, summarize:
 - what remains;
 - which files you will edit;
 - which tests you will run.
-
-Then implement only the next smallest step.

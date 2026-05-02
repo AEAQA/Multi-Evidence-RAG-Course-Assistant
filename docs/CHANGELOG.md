@@ -22,6 +22,10 @@
 * Milestone 3 grounded answer generation with prompt builder, answer generator, evidence list, citations, and retrieval explanation.
 * Prompt-injection-aware untrusted-context instruction for retrieved evidence.
 * Unit tests for prompt safety, Top-5 evidence limits, insufficient evidence fallback, and answer generator outputs.
+* Milestone 4 retrieval metrics foundation: Recall@1/3/5, MRR@5, NDCG@5, one-query evaluation, and mean metric aggregation.
+* Unit tests for retrieval metric edge cases and aggregation.
+* Milestone 4 evaluation query loader, offline evaluation runner, latency rows, CSV/Markdown report writers, and 10-query synthetic evaluation dataset.
+* Unit tests for evaluation JSONL loading, retrieval method evaluation, latency rows, and report file creation.
 
 ### Changed
 
@@ -30,6 +34,7 @@
 * Updated `scripts/dev.py test` to use a workspace-local pytest temp directory.
 * Expanded `scripts/dev.py clean` to remove pytest/cache artifacts after delivery.
 * Extended answer response schema with `evidence_chunks` and `retrieval_explanation`.
+* Replaced placeholder evaluation entrypoint with local/offline `python scripts/dev.py eval` pipeline.
 
 ### Known cleanup notes
 

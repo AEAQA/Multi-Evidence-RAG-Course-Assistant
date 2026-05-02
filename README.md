@@ -71,6 +71,22 @@ Top-k retrieved evidence
 
 If no evidence is available, the generator returns an insufficient-evidence response instead of inventing an answer.
 
+## Evaluation
+
+Run the local/offline retrieval evaluation:
+
+```bash
+python scripts/dev.py eval
+```
+
+The evaluator reads `data/eval/queries.jsonl`, compares BM25, fake dense, fusion, and reranked retrieval, then writes:
+
+```text
+reports/evaluation/retrieval_metrics.csv
+reports/evaluation/latency_metrics.csv
+reports/evaluation/error_cases.md
+```
+
 ## Safety
 
 Do not commit `.env`, real API keys, private datasets, large model weights, or private course materials.
