@@ -13,6 +13,7 @@ Completed:
 * Milestone 5: Streamlit MVP Dashboard
 * Milestone 6: Image-Aware Ingestion Enhancement
 * Milestone 7: Optional API-Enhanced Mode
+* M7-patch1: Streamlit Evidence Workbench
 
 Next:
 

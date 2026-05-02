@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -35,7 +35,7 @@ class AppConfig:
     reranker_model: str = DEFAULT_RERANKER_MODEL
     asr_model: str = DEFAULT_ASR_MODEL
     vision_model: str = DEFAULT_VISION_MODEL
-    siliconflow_api_key: str = ""
+    siliconflow_api_key: str = field(default="", repr=False)
     siliconflow_base_url: str = DEFAULT_SILICONFLOW_BASE_URL
     api_timeout_seconds: float = DEFAULT_API_TIMEOUT_SECONDS
 
@@ -68,12 +68,17 @@ class AppConfig:
         }
 
 
-def load_config(env_path: str | Path | None = None) -> AppConfig:
+def load_config(
+    env_path: str | Path | None = None,
+    *,
+    load_env_file: bool = True,
+) -> AppConfig:
     """Load configuration without requiring secrets in local mode."""
-    if env_path is None:
-        load_dotenv()
-    else:
-        load_dotenv(dotenv_path=env_path, override=True)
+    if load_env_file:
+        if env_path is None:
+            load_dotenv()
+        else:
+            load_dotenv(dotenv_path=env_path, override=True)
 
     return AppConfig(
         app_mode=os.getenv("APP_MODE", DEFAULT_APP_MODE),

@@ -12,7 +12,7 @@ def test_local_mode_defaults_do_not_require_api_keys(monkeypatch) -> None:
     monkeypatch.delenv("APP_MODE", raising=False)
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
 
-    config = load_config()
+    config = load_config(load_env_file=False)
 
     assert config.is_local
     assert config.llm_provider == "mock"

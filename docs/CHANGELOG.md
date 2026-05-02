@@ -35,6 +35,10 @@
 * Milestone 7 optional SiliconFlow API-enhanced mode with provider factories, LLM client, reranker client, vision caption client, and mock fallbacks.
 * `python scripts/dev.py api-smoke` for optional live API smoke checks.
 * Unit tests for SiliconFlow fake response parsing, API failure fallback, config redaction, and no-key provider fallback.
+* Frontend/backend redesign spec based on the `frontend_reference/` review.
+* M7-patch1 app service layer for provider status, corpus summary and query orchestration.
+* M7-patch1 workbench diagnostics with method confidence labels, recommendations, timing and suggestions.
+* Unit tests for provider status, corpus service, query service and explicit workbench run behavior.
 
 ### Changed
 
@@ -50,6 +54,12 @@
 * Fixed retrieval result table formatting to avoid a hidden Pandas dependency in the Streamlit path.
 * Streamlit runtime sidebar now shows provider/model status and redacted SiliconFlow key status.
 * Dashboard query execution now injects provider-created LLM and reranker clients while preserving mock fallback.
+* Streamlit app now bootstraps the local `src` path when launched directly from IDE tooling.
+* Config repr no longer exposes the SiliconFlow API key in assertion failures or logs.
+* `.env.example` clarifies provider-vs-model fields for optional vision and deferred ASR.
+* Streamlit Page 1 is now `Study Query Workbench` with explicit button-triggered retrieval instead of default query auto-run.
+* Evidence display now uses collapsible evidence cards and a separate diagnostics panel for BM25, Dense, Fusion and Reranked methods.
+* Evaluation Dashboard is grouped into method summary, recall coverage, ranking quality, latency and weak cases sections.
 
 ### Known cleanup notes
 

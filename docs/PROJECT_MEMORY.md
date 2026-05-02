@@ -8,6 +8,7 @@ Current milestone:
 
 ```text
 Milestone 7: Optional SiliconFlow API-enhanced mode complete
+M7-patch1: Streamlit Evidence Workbench complete
 ```
 
 ## What works now
@@ -53,12 +54,25 @@ Milestone 7: Optional SiliconFlow API-enhanced mode complete
 * Missing API configuration or API failures fall back to mock clients.
 * Streamlit runtime status shows provider/model values and redacted `SILICONFLOW_API_KEY=set/missing` only.
 * `python scripts/dev.py api-smoke` is available for optional live API smoke checks.
+* Streamlit can be launched directly from IDE tooling because `app/streamlit_app.py` bootstraps the local `src` path.
+* `docs/specs/08_frontend_backend_redesign_spec.md` records the frontend/backend redesign direction after reviewing `frontend_reference/`.
+* A lightweight app service layer exists under `src/rag_project/app_services/`.
+* Provider status is normalized into UI-safe labels and never exposes the SiliconFlow API key.
+* Sample corpus summary and sample questions are available for the workbench.
+* Query orchestration is encapsulated by `QueryService`, including retrieval, answer generation, timing, suggestions and method diagnostics.
+* Streamlit Page 1 is now `Study Query Workbench` and no longer auto-runs retrieval from the default query text.
+* Evidence chunks are shown in collapsible cards, and BM25/Dense/Fusion/Reranked diagnostics include confidence bars and recommendations.
+* Evaluation Dashboard sections are grouped into method summary, recall coverage, ranking quality, latency and weak cases.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 67 tests.
 
 ## What is missing
 
 Remaining items after Milestone 7:
 
 * final report and demo packaging
+* optional uploaded corpus management
+* optional local session history
+* optional real ASR/TTS demo enhancement
 
 ## Key commands
 
@@ -78,6 +92,9 @@ python scripts/dev.py api-smoke
 * The global/current Python detected before environment creation was 3.13.9. Use the Conda environment from `environment.yml` for Python 3.11.
 * `conda run -n rag-study-assistant python -m pytest` hit Windows/Conda wrapper output issues; direct environment Python works.
 * `python scripts/dev.py clean` removes `__pycache__` successfully, but some pytest temp directories created by earlier sandboxed runs still return Windows `PermissionError`. They are ignored by git and may need manual deletion after closing any process holding them.
+* Real ASR is not implemented in M7. `ASR_PROVIDER` should remain `mock` until a SiliconFlow ASR client and browser audio flow are added.
+* `VISION_PROVIDER` must be a provider name such as `mock` or `siliconflow`; put the model id in `VISION_MODEL`.
+* M7-patch1 method confidence labels are UI diagnostics, not statistically calibrated probabilities.
 
 ## Next step
 

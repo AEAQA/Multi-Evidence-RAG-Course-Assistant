@@ -6,7 +6,8 @@ This is not a generic chatbot. The system retrieves evidence from local study ma
 
 ## Current Status
 
-Milestone 6 image-aware ingestion is implemented.
+Milestone 7 optional SiliconFlow API mode is implemented. M7-patch1 adds a
+more usable Streamlit Evidence Workbench while preserving offline/mock defaults.
 
 ## Environment
 
@@ -99,11 +100,19 @@ python scripts/dev.py run
 The app includes:
 
 ```text
-RAG Assistant
+Study Query Workbench
 Evaluation Dashboard
 ```
 
-The RAG Assistant uses the public synthetic sample corpus, shows the grounded mock answer, highlights retrieved evidence, and exposes BM25, Dense, Fusion, and Reranked result tables. The Evaluation Dashboard reads or creates local reports and displays retrieval metrics, latency, and error cases.
+The Study Query Workbench uses the public synthetic sample corpus, requires an
+explicit `Run evidence query` click, shows a grounded answer with citations,
+highlights collapsible evidence cards, and exposes BM25, Dense, Fusion, and
+Reranked diagnostics with confidence labels and recommendations. The Evaluation
+Dashboard reads or creates local reports and displays method summary, recall,
+ranking quality, latency, and weak cases.
+
+ASR and TTS are not live features in M7-patch1. ASR remains a mock/planned
+status in the UI until a real audio input path and provider client are added.
 
 ## Image-Aware PDF Ingestion
 

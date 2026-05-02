@@ -142,3 +142,39 @@ The sidebar displays safe provider status for API-enhanced mode:
 The UI must never display the real API key. RAG Assistant continues to show
 evidence, final answer, retrieval process tabs, and debug metadata when API
 providers fall back to mock clients.
+
+## M7-patch1 Evidence Workbench
+
+Page 1 is renamed to:
+
+```text
+Study Query Workbench
+```
+
+Required behavior:
+
+* retrieval must only run when the user clicks `Run evidence query`;
+* typing or changing the default query must not automatically run retrieval;
+* the page uses a three-column workbench:
+  * left: corpus scope, sample questions and provider status;
+  * center: query composer, grounded answer, citations and suggestions;
+  * right: evidence cards and retrieval diagnostics;
+* provider status must show safe state labels such as `mock`, `siliconflow`,
+  `missing-key` and `unsupported-asr`;
+* real API keys must never be displayed;
+* ASR must be shown as mock/planned until a real ASR client and audio UI are
+  implemented;
+* evidence chunks must be collapsible and include chunk id, source, page,
+  type, preview and image/table metadata when available;
+* retrieval diagnostics must show BM25, Dense, Fusion and Reranked result
+  groups plus a simple confidence label and recommendation for each method.
+
+Page 2 remains:
+
+```text
+Evaluation Dashboard
+```
+
+M7-patch1 groups evaluation content into method summary, recall coverage,
+ranking quality, latency and weak cases sections. It continues to read/create
+local reports without Pandas, API keys or network calls.

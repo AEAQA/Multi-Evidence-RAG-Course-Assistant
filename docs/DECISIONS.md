@@ -84,3 +84,23 @@ M7 must support real API demos without making the project depend on API keys,
 network access or provider availability. Provider factories keep mock behavior
 as the default, create SiliconFlow clients only when local `.env` is complete,
 and preserve deterministic unit tests by allowing HTTP calls to be faked.
+
+## Decision 014: Add an app service layer before any FastAPI/React migration
+
+Reason:
+
+M7-patch1 improves the Streamlit demo without changing the core RAG pipeline.
+`QueryService`, `CorpusService` and `ProviderStatus` keep UI orchestration out
+of `app/streamlit_app.py` while preserving offline-first tests. This creates a
+stable boundary that can later be reused by FastAPI/React if the final demo
+requires it.
+
+## Decision 015: Use heuristic confidence labels only for UI guidance
+
+Reason:
+
+BM25, fake dense retrieval, reciprocal rank fusion and mock/API reranking do not
+share calibrated score scales. M7-patch1 therefore presents confidence as a
+simple UI diagnostic derived from the top score, not as a statistical
+probability or model certainty. The label helps users inspect evidence and
+compare methods without changing evaluation metrics.

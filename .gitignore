@@ -40,3 +40,6 @@ reports/figures/
 Thumbs.db
 .idea/
 .vscode/
+
+# reference
+frontend_reference/*
