@@ -35,3 +35,21 @@ Dense retrieval provides semantic search capability while remaining feasible on 
 Reason:
 
 Docker adds setup complexity and is unnecessary before the local app and tests are stable.
+
+## Decision 007: Use reciprocal rank fusion for M2 hybrid retrieval
+
+Reason:
+
+Reciprocal rank fusion combines BM25 and dense rankings without requiring score calibration. It is deterministic, simple to test, and suitable for the offline-first MVP.
+
+## Decision 008: Use hashing vectors for fake dense retrieval tests
+
+Reason:
+
+Hashing vectors provide deterministic dense-like behavior without model downloads, GPU, API keys, or network access. Real MiniLM/SBERT remains optional for later demo mode only.
+
+## Decision 009: Use pure-Python BM25 for the offline baseline
+
+Reason:
+
+The Windows Conda environment triggered a fatal NumPy import exception through `rank-bm25`, which cannot be caught inside Python. A small pure-Python BM25 implementation keeps the lexical baseline deterministic and testable while preserving the intended BM25 behavior.

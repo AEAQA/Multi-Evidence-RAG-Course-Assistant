@@ -6,7 +6,7 @@ This is not a generic chatbot. The system retrieves evidence from local study ma
 
 ## Current Status
 
-Milestone 1 text/PDF ingestion MVP is implemented.
+Milestone 2 retrieval baselines are implemented.
 
 ## Environment
 
@@ -45,6 +45,17 @@ data/eval/           Evaluation queries
 data/raw/            Local private raw data, ignored by git
 reports/             Evaluation reports and figures
 docs/specs/          SDD project specifications
+```
+
+## Implemented Baselines
+
+Current local/offline retrieval methods:
+
+```text
+BM25-only
+Fake dense-only
+BM25 + dense reciprocal rank fusion
+BM25 + dense fusion + mock reranker
 ```
 
 ## Safety

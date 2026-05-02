@@ -7,7 +7,7 @@ Milestone 0 repository bootstrap implemented.
 Current milestone:
 
 ```text
-Milestone 1: Text/PDF ingestion MVP complete
+Milestone 2: Retrieval baselines complete
 ```
 
 ## What works now
@@ -24,13 +24,17 @@ Milestone 1: Text/PDF ingestion MVP complete
 * Text-based PDFs can be loaded with PyMuPDF.
 * Text pages can be split into metadata-preserving text chunks.
 * Mock/interface skeletons exist for LLM, reranker, ASR, and vision caption clients.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 14 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 19 tests.
+* BM25 lexical retrieval works in local/offline mode.
+* Fake deterministic dense retrieval works without external models, GPU, API keys, or network calls.
+* Reciprocal rank fusion merges BM25 and dense results.
+* Retrieval pipeline returns BM25-only, dense-only, hybrid fusion, and fusion + mock reranker outputs.
+* `scripts/dev.py clean` removes pytest/cache artifacts generated during delivery.
 
 ## What is missing
 
-Remaining items after Milestone 0:
+Remaining items after Milestone 2:
 
-* retrieval module
 * evaluation module
 * Streamlit dashboard
 * grounded answer generation
@@ -52,8 +56,8 @@ python scripts/dev.py eval
 
 * The global/current Python detected before environment creation was 3.13.9. Use the Conda environment from `environment.yml` for Python 3.11.
 * `conda run -n rag-study-assistant python -m pytest` hit Windows/Conda wrapper output issues; direct environment Python works.
-* Stale pytest temp directories could not be removed on Windows. `scripts/dev.py test` now uses a unique ignored `pytest_runs/<uuid>` directory per run.
+* `python scripts/dev.py clean` removes `__pycache__` successfully, but some pytest temp directories created by earlier sandboxed runs still return Windows `PermissionError`. They are ignored by git and may need manual deletion after closing any process holding them.
 
 ## Next step
 
-Create a git checkpoint, then start Milestone 2: retrieval baselines.
+Start Milestone 3: grounded answer generation with prompt-injection-aware prompt building and mock LLM answer generation.

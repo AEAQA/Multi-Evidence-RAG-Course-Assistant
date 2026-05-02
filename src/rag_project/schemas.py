@@ -61,6 +61,21 @@ class RerankResult(BaseModel):
     rank: int
 
 
+class RetrievalResult(BaseModel):
+    chunk_id: str
+    score: float
+    rank: int
+    method: str
+    chunk: Chunk
+
+
+class RetrievalPipelineOutput(BaseModel):
+    bm25_results: list[RetrievalResult] = Field(default_factory=list)
+    dense_results: list[RetrievalResult] = Field(default_factory=list)
+    fusion_results: list[RetrievalResult] = Field(default_factory=list)
+    reranked_results: list[RetrievalResult] = Field(default_factory=list)
+
+
 class ASRResponse(BaseModel):
     text: str
     confidence: float | None = None

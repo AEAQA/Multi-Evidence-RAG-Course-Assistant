@@ -150,3 +150,30 @@ Failure fallback:
 * empty text files raise `ValueError`;
 * PDFs with no extractable text raise `ValueError`;
 * image/table extraction is deferred and must not be required for text ingestion tests.
+
+## Milestone 2 retrieval contract
+
+Retrieval baselines expose a shared result shape:
+
+```json
+{
+  "chunk_id": "doc001_page003_text_0001",
+  "score": 0.87,
+  "rank": 1,
+  "method": "bm25",
+  "chunk": {}
+}
+```
+
+Supported M2 methods:
+
+* `bm25`: lexical BM25 compatible with `rank-bm25` behavior, implemented without model or network dependencies;
+* `dense`: fake deterministic hashing vectors with cosine similarity;
+* `fusion`: reciprocal rank fusion over BM25 and dense results;
+* `reranked`: mock reranking over fused candidates.
+
+Failure fallback:
+
+* empty corpora return empty result lists;
+* non-positive `top_k` returns an empty result list;
+* dense retrieval does not download models, use GPU, require API keys, or access the network.

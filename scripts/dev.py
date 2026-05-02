@@ -97,11 +97,17 @@ def cmd_clean(_: argparse.Namespace) -> int:
     """Remove common local cache/output directories."""
     targets = [
         ROOT / ".pytest_cache",
+        ROOT / ".pytest_tmp",
         ROOT / ".mypy_cache",
         ROOT / ".ruff_cache",
+        ROOT / "pytest_tmp",
+        ROOT / "pytest_run_tmp",
+        ROOT / "pytest_runs",
         ROOT / "reports" / "evaluation",
         ROOT / "reports" / "figures",
     ]
+
+    targets.extend(ROOT.glob("pytest-cache-files-*"))
 
     for target in targets:
         if target.exists():
