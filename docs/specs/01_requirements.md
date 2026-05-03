@@ -9,6 +9,7 @@ The system shall ingest course materials from local files.
 MVP:
 
 * `.txt`
+* `.md` / `.markdown`
 * text-based `.pdf`
 
 Enhanced:
@@ -40,6 +41,13 @@ The system shall support:
 * Hybrid fusion
 * Reranking
 
+Material selection:
+
+* users may optionally select which uploaded documents participate in retrieval;
+* if no uploaded documents are selected, retrieval searches all uploaded/indexed documents by default;
+* if one or more uploaded documents are selected, retrieval is restricted to chunks from those selected documents;
+* document selection is only a corpus-scope filter, and retrieval results remain chunk-level.
+
 ### FR4: RAG answer generation
 
 The system shall generate answers based only on retrieved evidence.
@@ -65,17 +73,14 @@ The system shall evaluate retrieval methods using:
 
 ### FR6: Dashboard
 
-The system shall provide a Streamlit dashboard showing:
+The system shall provide a Streamlit three-panel RAG workbench showing:
 
-* document upload or corpus selection
-* query input
-* final answer
-* evidence
-* BM25 results
-* Dense results
-* Fusion results
-* Reranked results
-* evaluation metrics
+* left panel: document upload, material selection, chunk count, document status, and RAG scope;
+* center panel: chat-style text query input and final answer with citations;
+* right panel: final evidence chunks, BM25 results, Dense results, Fusion results, Reranked results, scores, metadata, and optional latency/method summary.
+
+Evaluation metrics remain available in the evaluation page, but the main
+frontend must not read as a standalone chart-heavy analytics dashboard.
 
 ### FR7: Voice input
 

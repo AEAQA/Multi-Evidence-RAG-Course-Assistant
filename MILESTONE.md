@@ -14,6 +14,8 @@ Completed:
 * Milestone 6: Image-Aware Ingestion Enhancement
 * Milestone 7: Optional API-Enhanced Mode
 * M7-patch1: Streamlit Evidence Workbench
+* M7-patch2: Chat-Centered RAG Study Assistant With Local Document Upload
+* M7-patch3: Three-Panel RAG Workbench With Material Scope Refinement
 
 Next:
 

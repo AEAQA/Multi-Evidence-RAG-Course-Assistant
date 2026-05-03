@@ -151,6 +151,29 @@ AppConfig
 Unit tests must not call external services. Live API checks are limited to
 `python scripts/dev.py api-smoke`.
 
+## M7-patch2 local upload and chat-centered app layer
+
+M7-patch2 keeps the MVP as a single-process Streamlit application:
+
+```text
+Streamlit upload
+-> data/processed/uploads/
+-> text/PDF/image-aware ingestion
+-> data/processed/corpus_registry.json
+-> CorpusBundle
+-> QueryService
+-> RetrievalPipeline + AnswerGenerator
+-> chat answer + citations + expandable retrieval details
+```
+
+No FastAPI server, Chroma database, Docker service, or React frontend is added
+in M7-patch2. The `frontend_reference/rag_service` project is used only as a UX
+reference for document lists, status badges and chat-centered interaction.
+
+Uploaded data is local demonstration data and is ignored by git. The registry
+stores document metadata only; chunks are reconstructed from stored local files
+when the corpus is loaded.
+
 ## Design priorities
 
 1. Text-only RAG baseline first.

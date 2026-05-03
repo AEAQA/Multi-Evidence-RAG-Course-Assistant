@@ -39,6 +39,13 @@
 * M7-patch1 app service layer for provider status, corpus summary and query orchestration.
 * M7-patch1 workbench diagnostics with method confidence labels, recommendations, timing and suggestions.
 * Unit tests for provider status, corpus service, query service and explicit workbench run behavior.
+* M7-patch2 local `.txt` and `.pdf` upload support for the Streamlit app.
+* Local uploaded-corpus registry under ignored `data/processed/corpus_registry.json`.
+* Corpus selection for sample-only, uploaded-only, and combined sample + uploaded querying.
+* Unit tests for upload ingestion, registry failures, delete behavior, combined corpus loading, and selected chunk querying.
+* M7-patch3 `.md` and `.markdown` upload support.
+* M7-patch3 scored final evidence results for the right evidence panel.
+* Unit tests for optional material selection semantics and chunk-level evidence row metadata.
 
 ### Changed
 
@@ -60,6 +67,10 @@
 * Streamlit Page 1 is now `Study Query Workbench` with explicit button-triggered retrieval instead of default query auto-run.
 * Evidence display now uses collapsible evidence cards and a separate diagnostics panel for BM25, Dense, Fusion and Reranked methods.
 * Evaluation Dashboard is grouped into method summary, recall coverage, ranking quality, latency and weak cases sections.
+* Streamlit Page 1 is now `RAG Study Chat`, with answer/citation flow as the primary surface and retrieval details moved into expanders.
+* README/spec positioning now allows `RAG chatbot` wording while clarifying that the project is not a generic LLM chatbox.
+* Streamlit Page 1 now uses a fixed three-panel RAG workbench: materials on the left, chat in the center, evidence/retrieval methods on the right.
+* Uploaded document selection now acts as an optional corpus-scope filter; empty selection searches all uploaded documents.
 
 ### Known cleanup notes
 

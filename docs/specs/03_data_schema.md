@@ -134,7 +134,7 @@ Example:
 
 ## Milestone 1 ingestion contract
 
-MVP text ingestion supports local `.txt` files and text-based `.pdf` files.
+MVP text ingestion supports local `.txt`, `.md`, `.markdown` files and text-based `.pdf` files.
 
 Loader output:
 
@@ -164,6 +164,54 @@ Retrieval baselines expose a shared result shape:
   "chunk": {}
 }
 ```
+
+## Uploaded document registry schema
+
+Local uploaded demo documents are tracked in ignored local storage:
+
+```text
+data/processed/corpus_registry.json
+```
+
+Each record uses:
+
+```json
+{
+  "doc_id": "abc123def456",
+  "filename": "lecture_1.pdf",
+  "stored_path": "data/processed/uploads/abc123def456_lecture_1.pdf",
+  "chunk_count": 12,
+  "type_counts": {
+    "text": 10,
+    "image": 1,
+    "table": 1
+  },
+  "created_at": "2026-05-03T00:00:00+00:00"
+}
+```
+
+The registry is metadata only. Retrieval always returns chunk-level results.
+
+## UI evidence row contract
+
+The right evidence panel renders scored chunk-level rows:
+
+```json
+{
+  "rank": 1,
+  "score": 2.0,
+  "method": "reranked",
+  "chunk_id": "doc001_page003_text_0001",
+  "doc_id": "doc001",
+  "source_file": "lecture_1.pdf",
+  "page": 3,
+  "type": "text",
+  "preview": "Short text preview, caption, or table summary."
+}
+```
+
+For final answer evidence, the scored source of truth is the top reranked
+`RetrievalResult` list selected for answer generation.
 
 Supported M2 methods:
 

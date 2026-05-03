@@ -6,7 +6,11 @@ from time import perf_counter
 
 from pydantic import BaseModel, Field
 
-from rag_project.app_services.corpus_service import load_sample_corpus
+from rag_project.app_services.corpus_service import (
+    CorpusBundle,
+    CorpusSummary,
+    load_sample_corpus,
+)
 from rag_project.app_services.provider_status import ProviderStatus, build_provider_status
 from rag_project.config import AppConfig, load_config
 from rag_project.generation.answer_generator import AnswerGenerator
@@ -36,6 +40,9 @@ class WorkbenchState(BaseModel):
     timing_ms: dict[str, float] = Field(default_factory=dict)
     diagnostics: list[MethodDiagnostic] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
+    corpus_summary: CorpusSummary | None = None
+    corpus_warnings: list[str] = Field(default_factory=list)
+    final_evidence_results: list[RetrievalResult] = Field(default_factory=list)
 
 
 class QueryService:
@@ -52,37 +59,79 @@ class QueryService:
 
     def run(self, query: str, *, top_k: int = 5) -> WorkbenchState:
         """Run the full workbench query path with provider fallback clients."""
-        normalized_query = query.strip()
-        bounded_top_k = max(1, min(top_k, 10))
-        provider_status = build_provider_status(self.config)
-
-        started = perf_counter()
-        retrieval = RetrievalPipeline(
-            self.chunks,
-            reranker=create_reranker_client(self.config),
-        ).search(normalized_query, top_k=bounded_top_k)
-        retrieval_finished = perf_counter()
-
-        answer = AnswerGenerator(
-            llm_client=create_llm_client(self.config),
-            max_evidence=bounded_top_k,
-        ).generate(normalized_query, retrieval.reranked_results)
-        finished = perf_counter()
-
-        diagnostics = build_method_diagnostics(retrieval)
-        return WorkbenchState(
-            query=normalized_query,
-            retrieval=retrieval,
-            answer=answer,
-            provider_status=provider_status,
-            timing_ms={
-                "retrieval": _elapsed_ms(started, retrieval_finished),
-                "generation": _elapsed_ms(retrieval_finished, finished),
-                "total": _elapsed_ms(started, finished),
-            },
-            diagnostics=diagnostics,
-            suggestions=_build_suggestions(answer, diagnostics),
+        return _run_query(
+            query=query,
+            chunks=self.chunks,
+            config=self.config,
+            top_k=top_k,
         )
+
+
+def run_query(
+    query: str,
+    corpus_bundle: CorpusBundle,
+    *,
+    config: AppConfig | None = None,
+    top_k: int = 5,
+) -> WorkbenchState:
+    """Run a query against an explicit corpus bundle."""
+    runtime_config = config or load_config()
+    return _run_query(
+        query=query,
+        chunks=corpus_bundle.chunks,
+        config=runtime_config,
+        top_k=top_k,
+        corpus_summary=corpus_bundle.summary,
+        corpus_warnings=corpus_bundle.warnings,
+    )
+
+
+def _run_query(
+    *,
+    query: str,
+    chunks: list[Chunk],
+    config: AppConfig,
+    top_k: int,
+    corpus_summary: CorpusSummary | None = None,
+    corpus_warnings: list[str] | None = None,
+) -> WorkbenchState:
+    normalized_query = query.strip()
+    bounded_top_k = max(1, min(top_k, 10))
+    provider_status = build_provider_status(config)
+
+    started = perf_counter()
+    retrieval = RetrievalPipeline(
+        chunks,
+        reranker=create_reranker_client(config),
+    ).search(normalized_query, top_k=bounded_top_k)
+    retrieval_finished = perf_counter()
+
+    answer = AnswerGenerator(
+        llm_client=create_llm_client(config),
+        max_evidence=bounded_top_k,
+    ).generate(normalized_query, retrieval.reranked_results)
+    finished = perf_counter()
+
+    diagnostics = build_method_diagnostics(retrieval)
+    return WorkbenchState(
+        query=normalized_query,
+        retrieval=retrieval,
+        answer=answer,
+        provider_status=provider_status,
+        timing_ms={
+            "retrieval": _elapsed_ms(started, retrieval_finished),
+            "generation": _elapsed_ms(retrieval_finished, finished),
+            "total": _elapsed_ms(started, finished),
+        },
+        diagnostics=diagnostics,
+        suggestions=_build_suggestions(answer, diagnostics),
+        corpus_summary=corpus_summary,
+        corpus_warnings=list(corpus_warnings or []),
+        final_evidence_results=_final_evidence_results(
+            retrieval.reranked_results,
+            answer.evidence_chunks,
+        ),
+    )
 
 
 def build_method_diagnostics(
@@ -181,6 +230,20 @@ def _build_suggestions(
     if reranked and reranked.confidence_label in {"low", "none"}:
         suggestions.append("Try a more specific query because reranked confidence is weak.")
     return suggestions
+
+
+def _final_evidence_results(
+    reranked_results: list[RetrievalResult],
+    evidence_chunks: list[Chunk],
+) -> list[RetrievalResult]:
+    if not evidence_chunks:
+        return []
+    evidence_ids = {chunk.chunk_id for chunk in evidence_chunks}
+    return [
+        result
+        for result in reranked_results
+        if result.chunk_id in evidence_ids
+    ]
 
 
 def _elapsed_ms(start: float, end: float) -> float:

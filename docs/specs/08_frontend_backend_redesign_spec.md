@@ -326,3 +326,47 @@ Deferred after M7-patch1:
 * real SiliconFlow ASR;
 * TTS;
 * FastAPI + React migration.
+
+## M7-patch2 Implementation Status
+
+M7-patch2 shifts the first page from an inspection-first workbench to a
+chat-centered RAG study assistant while keeping retrieval transparency available
+on demand.
+
+Implemented:
+
+* Page 1 is now `RAG Study Chat`.
+* The main interaction is a central study-question box with a grounded natural
+  language answer and citations.
+* `.txt` and `.pdf` uploads are supported from the Streamlit UI.
+* Uploaded files are stored under ignored local storage:
+
+```text
+data/processed/uploads/
+data/processed/corpus_registry.json
+```
+
+* Uploaded `.txt` files use the existing text loader and chunker.
+* Uploaded `.pdf` files use the image-aware `load_pdf_chunks()` path with
+  text/image/table fallback behavior.
+* Corpus scope supports sample only, uploaded only, and sample + uploaded.
+* Uploaded document selection and deletion are local-only and do not require a
+  database or API server.
+* BM25, Dense, Fusion, Reranked top-k results, method confidence, latency and
+  debug metadata are hidden by default under `Explain how this answer was
+  retrieved` and `Debug view`.
+
+Product positioning:
+
+* The project may be described as a RAG-based study assistant or RAG chatbot.
+* It must not be described or implemented as a generic LLM chatbox.
+* The core contribution remains the comparison of retrieval strategies and
+  their effect on grounded RAG answer quality.
+
+Architecture decision:
+
+* FastAPI/React remains deferred until after M8 or a dedicated migration
+  milestone.
+* M7-patch2 intentionally keeps Streamlit as the MVP dashboard and reuses the
+  existing app service layer instead of introducing Chroma, Docker, or a local
+  database.

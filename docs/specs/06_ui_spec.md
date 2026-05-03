@@ -178,3 +178,76 @@ Evaluation Dashboard
 M7-patch1 groups evaluation content into method summary, recall coverage,
 ranking quality, latency and weak cases sections. It continues to read/create
 local reports without Pandas, API keys or network calls.
+
+## M7-patch2 Chat-Centered RAG UI
+
+Page 1 is renamed to:
+
+```text
+RAG Study Chat
+```
+
+Required behavior:
+
+* the first viewport should feel like a study assistant, not a retrieval log;
+* the central path is upload/select corpus -> ask question -> answer with
+  citations;
+* `.txt` and `.pdf` upload must be visible from the main page;
+* uploaded files are local demo data and must be stored only under ignored
+  `data/processed/` paths;
+* users can query sample corpus, uploaded corpus, or combined corpus;
+* citations and compact evidence preview remain close to the final answer;
+* BM25, Dense, Fusion, Reranked top-k tables and method diagnostics are hidden
+  by default inside `Explain how this answer was retrieved`;
+* latency and provider/debug metadata are hidden by default inside `Debug view`;
+* the Evaluation Dashboard remains the place for full Recall@k, MRR@5,
+  NDCG@5, latency and error-case analysis.
+
+Terminology:
+
+* acceptable: `RAG-based study assistant`, `RAG chatbot`,
+  `retrieval-augmented question answering system`;
+* avoid: describing the project as a plain LLM chatbot or a simple API wrapper.
+
+## M7-patch3 Three-Panel RAG Workbench
+
+The frontend should be designed as a three-panel RAG workbench rather than a
+standalone analytics dashboard. The center panel may remain a clean
+chatbot-style interface, but the left panel must control the knowledge base and
+selected materials, while the right panel must expose evidence, retrieval
+method outputs, scores and source metadata. This ensures that the interface
+demonstrates the data science pipeline rather than only presenting a generic
+chatbot.
+
+Required layout:
+
+```text
+Left: Materials / Knowledge Base
+Center: Chat Interface
+Right: Evidence and Retrieval Methods
+```
+
+Left panel:
+
+* upload `.pdf`, `.txt`, `.md`, and `.markdown` files;
+* list uploaded documents;
+* allow optional document selection for retrieval scope;
+* show `doc_id`, filename, chunk count, chunk type counts, document status, and RAG enabled/disabled state;
+* if no uploaded documents are selected, uploaded retrieval searches all uploaded documents;
+* if one or more uploaded documents are selected, uploaded retrieval is restricted to selected `doc_id`s.
+
+Center panel:
+
+* keep the interface clean and chat-focused;
+* support text query first;
+* show grounded final answer;
+* show citations or citation table next to the answer;
+* voice input remains optional and mock/planned until implemented.
+
+Right panel:
+
+* show final evidence chunks used for answer generation;
+* show `chunk_id`, `doc_id`, `source_file`, `page`, chunk type, retrieval method, score/confidence, and preview;
+* show BM25 Top-k, Dense Retrieval Top-k, Hybrid Fusion candidates, and Reranked Top-k in method tabs;
+* show insufficient-evidence warning when final evidence is weak or absent;
+* optionally show latency and compact method comparison summary.

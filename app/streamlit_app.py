@@ -1,4 +1,4 @@
-"""Streamlit Evidence Workbench for the offline-first RAG study assistant."""
+"""Streamlit RAG Study Chat for the offline-first study assistant."""
 
 from __future__ import annotations
 
@@ -12,15 +12,21 @@ if str(SRC) not in sys.path:
 
 import streamlit as st
 
-from rag_project.app_services.corpus_service import build_sample_corpus_summary
+from rag_project.app_services.corpus_service import (
+    CorpusBundle,
+    CorpusSelection,
+    CorpusSummary,
+    DocumentRecord,
+    delete_uploaded_document,
+    ingest_uploaded_files,
+    load_corpus_bundle,
+    load_uploaded_corpus,
+)
 from rag_project.app_services.provider_status import ProviderStatus, build_provider_status
-from rag_project.app_services.query_service import MethodDiagnostic, WorkbenchState
+from rag_project.app_services.query_service import MethodDiagnostic, WorkbenchState, run_query
 from rag_project.config import load_config
 from rag_project.schemas import Chunk, RetrievalResult
-from rag_project.ui.dashboard_data import (
-    build_sample_dashboard_state,
-    load_or_create_evaluation_reports,
-)
+from rag_project.ui.dashboard_data import load_or_create_evaluation_reports
 
 
 DEFAULT_QUERY = "What is overfitting and why does validation data matter?"
@@ -40,14 +46,14 @@ def main() -> None:
     _render_header(config.app_mode)
 
     page = st.sidebar.radio(
-        "Workspace",
-        ["Study Query Workbench", "Evaluation Dashboard"],
+    "Workspace",
+        ["RAG Workbench", "Evaluation Dashboard"],
         label_visibility="collapsed",
     )
     _render_sidebar_status(provider_status)
 
-    if page == "Study Query Workbench":
-        _render_study_query_workbench(provider_status)
+    if page == "RAG Workbench":
+        _render_rag_workbench(provider_status)
     else:
         _render_evaluation_dashboard()
 
@@ -57,8 +63,8 @@ def _render_header(app_mode: str) -> None:
         f"""
         <section class="topline">
           <div>
-            <div class="eyebrow">OFFLINE-FIRST RAG WORKSTATION</div>
-            <h1>Evidence Workbench</h1>
+            <div class="eyebrow">RAG-BASED STUDY ASSISTANT</div>
+            <h1>Ask your course materials</h1>
           </div>
           <div class="mode-pill">APP_MODE={_escape_preview(app_mode)}</div>
         </section>
@@ -85,83 +91,185 @@ def _render_sidebar_status(provider_status: ProviderStatus) -> None:
     st.sidebar.caption("API keys are never displayed in the app.")
 
 
-def _render_study_query_workbench(provider_status: ProviderStatus) -> None:
-    summary = build_sample_corpus_summary()
-    _ensure_workbench_session()
+def _render_rag_workbench(provider_status: ProviderStatus) -> None:
+    _ensure_chat_session()
+    upload_status = _handle_upload_action()
+    all_uploaded = load_uploaded_corpus()
 
-    left, center, right = st.columns([0.82, 1.42, 1.18], gap="large")
-
+    left, center, right = st.columns([0.74, 1.36, 1.0], gap="large")
     with left:
-        _render_corpus_panel(summary)
+        selection = _render_corpus_manager(all_uploaded.documents, upload_status)
         _render_provider_status_panel(provider_status)
 
-    with center:
-        _render_query_panel()
-
-    run_clicked = st.session_state.pop("run_workbench_query", False)
-    query = st.session_state.get("workbench_query", "")
-    top_k = int(st.session_state.get("workbench_top_k", 5))
-
-    if _should_run_query(run_clicked, query):
-        with st.spinner("Retrieving evidence, reranking candidates, and generating a grounded answer..."):
-            try:
-                st.session_state["last_workbench_state"] = build_sample_dashboard_state(
-                    query,
-                    top_k=top_k,
-                    config=load_config(),
-                )
-            except Exception as exc:  # pragma: no cover - defensive Streamlit fallback
-                st.session_state["last_workbench_error"] = str(exc)
-
-    state = st.session_state.get("last_workbench_state")
-    error = st.session_state.pop("last_workbench_error", None)
+    if st.session_state.get("rag_enabled", True):
+        corpus_bundle = load_corpus_bundle(selection)
+    else:
+        corpus_bundle = CorpusBundle(
+            chunks=[],
+            summary=CorpusSummary(corpus_name="RAG retrieval disabled", chunk_count=0),
+            documents=[],
+            warnings=["RAG retrieval is disabled. Enable it to search selected materials."],
+        )
 
     with center:
+        _render_chat_composer(corpus_bundle)
+
+        run_clicked = st.session_state.pop("run_workbench_query", False)
+        query = st.session_state.get("workbench_query", "")
+        top_k = int(st.session_state.get("workbench_top_k", 5))
+        if _should_run_query(run_clicked, query):
+            with st.spinner("Retrieving evidence, reranking candidates, and drafting a grounded answer..."):
+                try:
+                    st.session_state["last_workbench_state"] = run_query(
+                        query,
+                        corpus_bundle,
+                        top_k=top_k,
+                        config=load_config(),
+                    )
+                except Exception as exc:  # pragma: no cover - defensive Streamlit fallback
+                    st.session_state["last_workbench_error"] = str(exc)
+
+        state = st.session_state.get("last_workbench_state")
+        error = st.session_state.pop("last_workbench_error", None)
         if error:
-            st.error(f"Workbench query failed. Mock/local fallback remains available. Error: {error}")
+            st.error(f"RAG query failed. Mock/local fallback remains available. Error: {error}")
         if isinstance(state, WorkbenchState):
             _render_answer_panel(state)
         else:
-            _render_empty_workbench()
+            _render_empty_chat_state()
 
     with right:
         if isinstance(state, WorkbenchState):
-            _render_evidence_panel(state)
-            _render_diagnostics_panel(state)
+            _render_right_evidence_panel(state)
         else:
-            _render_evidence_placeholder()
+            _render_right_placeholder()
 
 
-def _ensure_workbench_session() -> None:
-    if "workbench_query" not in st.session_state:
-        st.session_state["workbench_query"] = DEFAULT_QUERY
-    if "workbench_top_k" not in st.session_state:
-        st.session_state["workbench_top_k"] = 5
+def _ensure_chat_session() -> None:
+    defaults = {
+        "workbench_query": DEFAULT_QUERY,
+        "workbench_top_k": 5,
+        "corpus_mode": "combined",
+        "selected_doc_ids": [],
+        "rag_enabled": True,
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 
-def _render_corpus_panel(summary) -> None:
-    st.markdown('<div class="section-title">Corpus Scope</div>', unsafe_allow_html=True)
+def _handle_upload_action():
+    files = st.session_state.get("pending_upload_files") or []
+    if st.session_state.pop("ingest_pending_uploads", False) and files:
+        result = ingest_uploaded_files(files)
+        selected = set(st.session_state.get("selected_doc_ids", []))
+        selected.update(record.doc_id for record in result.uploaded)
+        st.session_state["selected_doc_ids"] = sorted(selected)
+        return result
+    return None
+
+
+def _render_corpus_manager(
+    documents: list[DocumentRecord],
+    upload_status,
+) -> CorpusSelection:
+    st.markdown('<div class="section-title">Knowledge Base</div>', unsafe_allow_html=True)
+    st.file_uploader(
+        "Upload lecture notes or PDFs",
+        type=["txt", "md", "markdown", "pdf"],
+        accept_multiple_files=True,
+        key="pending_upload_files",
+    )
+    if st.button("Add files to local corpus", type="primary", use_container_width=True):
+        st.session_state["ingest_pending_uploads"] = True
+        st.rerun()
+
+    if upload_status:
+        if upload_status.uploaded:
+            st.success(f"Added {len(upload_status.uploaded)} document(s).")
+        for failure in upload_status.failed:
+            st.warning(f"{failure.filename}: {failure.error}")
+
+    mode = st.radio(
+        "Corpus scope",
+        ["combined", "sample", "uploaded"],
+        key="corpus_mode",
+        format_func=lambda value: {
+            "combined": "Sample + uploaded",
+            "sample": "Sample only",
+            "uploaded": "Uploaded only",
+        }[value],
+    )
+    rag_enabled = st.checkbox("RAG retrieval enabled", key="rag_enabled")
+
+    selected_doc_ids = _render_document_selector(documents)
+    selected_count = len(selected_doc_ids)
+    active_scope = (
+        "all uploaded documents"
+        if documents and selected_count == 0
+        else f"{selected_count} selected document(s)"
+    )
     st.markdown(
         f"""
-        <div class="workbench-panel">
-          <div class="panel-kicker">ACTIVE CORPUS</div>
-          <h3>{_escape_preview(summary.corpus_name)}</h3>
-          <div class="stat-grid">
-            <div><b>{summary.chunk_count}</b><span>chunks</span></div>
-            <div><b>{len(summary.source_files)}</b><span>sources</span></div>
-          </div>
+        <div class="scope-chip">
+          <b>RAG {'enabled' if rag_enabled else 'disabled'}</b>
+          <span>{_escape_preview(mode)} scope | {_escape_preview(active_scope)}</span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.caption("Chunk types")
-    for chunk_type, count in summary.type_counts.items():
-        st.markdown(f"`{chunk_type}` {count}")
+    return CorpusSelection(mode=mode, selected_doc_ids=selected_doc_ids)
 
-    with st.expander("Sample questions", expanded=True):
-        for index, question in enumerate(summary.sample_questions, start=1):
-            if st.button(question, key=f"sample_question_{index}", use_container_width=True):
-                st.session_state["workbench_query"] = question
+
+def _render_document_selector(documents: list[DocumentRecord]) -> list[str]:
+    if not documents:
+        st.info("No local documents uploaded yet. The sample corpus is still available.")
+        st.session_state["selected_doc_ids"] = []
+        return []
+
+    selected = set(st.session_state.get("selected_doc_ids", []))
+    valid_ids = {record.doc_id for record in documents}
+    selected &= valid_ids
+    st.session_state["selected_doc_ids"] = sorted(selected)
+
+    with st.expander("Uploaded documents", expanded=True):
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("Select all", use_container_width=True):
+                selected = set(valid_ids)
+                st.session_state["selected_doc_ids"] = sorted(selected)
+        with col_b:
+            if st.button("Clear", use_container_width=True):
+                selected = set()
+                st.session_state["selected_doc_ids"] = []
+
+        for record in documents:
+            checked = record.doc_id in selected
+            type_text = ", ".join(
+                f"{key}:{value}"
+                for key, value in sorted(record.type_counts.items())
+            )
+            if st.checkbox(
+                f"{record.filename} ({record.chunk_count} chunks)",
+                value=checked,
+                key=f"doc_select_{record.doc_id}",
+            ):
+                selected.add(record.doc_id)
+            else:
+                selected.discard(record.doc_id)
+            st.caption(f"`{record.doc_id}` | {type_text or 'no chunks'} | ready")
+
+            if st.button("Delete", key=f"doc_delete_{record.doc_id}"):
+                delete_uploaded_document(record.doc_id)
+                st.session_state["selected_doc_ids"] = [
+                    doc_id
+                    for doc_id in st.session_state.get("selected_doc_ids", [])
+                    if doc_id != record.doc_id
+                ]
+                st.rerun()
+
+    st.session_state["selected_doc_ids"] = sorted(selected)
+    return sorted(selected)
 
 
 def _render_provider_status_panel(provider_status: ProviderStatus) -> None:
@@ -176,35 +284,54 @@ def _render_provider_status_panel(provider_status: ProviderStatus) -> None:
             """,
             unsafe_allow_html=True,
         )
-        st.caption(item.detail)
-    st.info("ASR live path is planned/deferred in M7-patch1; mock fallback remains active.")
+    st.caption("ASR/TTS live paths are deferred; mock fallback remains active.")
 
 
-def _render_query_panel() -> None:
-    st.markdown('<div class="section-title">Query And Answer</div>', unsafe_allow_html=True)
+def _render_chat_composer(corpus_bundle: CorpusBundle) -> None:
+    st.markdown(
+        f"""
+        <div class="chat-shell">
+          <div class="chat-kicker">ACTIVE KNOWLEDGE BASE</div>
+          <div class="chat-scope">{_escape_preview(corpus_bundle.summary.corpus_name)}</div>
+          <div class="answer-meta">
+            <span>{corpus_bundle.summary.chunk_count} chunks</span>
+            <span>{len(corpus_bundle.summary.source_files)} sources</span>
+            <span>{len(corpus_bundle.documents)} uploaded docs in scope</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    for warning in corpus_bundle.warnings:
+        st.warning(warning)
+
     st.text_area(
-        "Study question",
+        "Ask a study question",
         key="workbench_query",
-        height=115,
-        placeholder="Ask a question about the selected study corpus...",
+        height=130,
+        placeholder="Ask about your uploaded notes, lecture PDFs, or the sample corpus...",
     )
-    st.slider(
-        "Evidence Top-k",
-        min_value=1,
-        max_value=5,
-        key="workbench_top_k",
-    )
-    run_clicked = st.button("Run evidence query", type="primary", use_container_width=True)
-    if run_clicked:
-        st.session_state["run_workbench_query"] = True
+    cols = st.columns([0.42, 0.58])
+    with cols[0]:
+        st.slider(
+            "Evidence Top-k",
+            min_value=1,
+            max_value=5,
+            key="workbench_top_k",
+        )
+    with cols[1]:
+        if st.button("Ask with RAG", type="primary", use_container_width=True):
+            st.session_state["run_workbench_query"] = True
 
 
 def _render_answer_panel(state: WorkbenchState) -> None:
+    summary = state.corpus_summary or CorpusSummary(corpus_name="Current corpus", chunk_count=0)
     st.markdown(
         f"""
         <div class="answer-meta">
-          <span>{len(state.answer.evidence_chunks)} evidence chunks</span>
+          <span>{len(state.answer.evidence_chunks)} cited evidence chunks</span>
           <span>{state.timing_ms.get("total", 0):.1f} ms total</span>
+          <span>{_escape_preview(summary.corpus_name)}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -212,7 +339,6 @@ def _render_answer_panel(state: WorkbenchState) -> None:
     if state.answer.insufficient_evidence:
         st.warning(state.answer.answer)
     else:
-        st.markdown('<div class="answer-band">Grounded answer</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="answer-text">{_escape_preview(state.answer.answer)}</div>', unsafe_allow_html=True)
 
     if state.answer.citations:
@@ -230,54 +356,52 @@ def _render_answer_panel(state: WorkbenchState) -> None:
             hide_index=True,
         )
 
-    with st.expander("Next actions", expanded=True):
-        for suggestion in state.suggestions:
-            st.markdown(f"- {suggestion}")
+
+def _render_right_placeholder() -> None:
+    st.markdown('<div class="section-title">Evidence / Retrieval</div>', unsafe_allow_html=True)
+    st.info("Run a RAG query to inspect cited chunks and retrieval method outputs.")
 
 
-def _render_empty_workbench() -> None:
-    st.markdown(
-        """
-        <div class="empty-state">
-          <b>No query has been run in this session.</b>
-          <span>Choose a sample question or write your own, then click Run evidence query.</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+def _render_right_evidence_panel(state: WorkbenchState) -> None:
+    st.markdown('<div class="section-title">Evidence / Retrieval</div>', unsafe_allow_html=True)
+    weak = state.answer.insufficient_evidence or not state.final_evidence_results
+    if weak:
+        st.warning("Insufficient or weak evidence. Review the retrieved chunks before trusting the answer.")
 
-
-def _render_evidence_placeholder() -> None:
-    st.markdown('<div class="section-title">Evidence</div>', unsafe_allow_html=True)
-    st.info("Evidence cards will appear here after an explicit query run.")
-    st.markdown('<div class="section-title">Diagnostics</div>', unsafe_allow_html=True)
-    st.info("Retrieval method confidence and result tabs will appear here.")
-
-
-def _render_evidence_panel(state: WorkbenchState) -> None:
-    st.markdown('<div class="section-title">Evidence</div>', unsafe_allow_html=True)
-    if not state.answer.evidence_chunks:
-        st.warning("Insufficient evidence: no reranked chunks were selected.")
-        return
-
-    for index, chunk in enumerate(state.answer.evidence_chunks, start=1):
-        label = f"#{index} {chunk.type} | {chunk.source_file} p.{chunk.page} | {chunk.chunk_id}"
-        with st.expander(label, expanded=index <= 2):
-            st.markdown(f'<div class="chunk-text">{_escape_preview(chunk.text)}</div>', unsafe_allow_html=True)
-            _render_chunk_metadata(chunk)
+    st.markdown("#### Final evidence chunks")
+    if not state.final_evidence_results:
+        st.info("No final evidence chunks were selected.")
+    for index, result in enumerate(state.final_evidence_results, start=1):
+        chunk = result.chunk
+        title = (
+            f"#{index} {chunk.source_file} p.{chunk.page} | "
+            f"{chunk.type} | score {result.score:.3f}"
+        )
+        with st.expander(title, expanded=index <= 2):
+            st.caption(
+                f"chunk_id={chunk.chunk_id} | doc_id={chunk.doc_id} | method={result.method}"
+            )
+            st.markdown(
+                f'<div class="evidence-chip"><span>{_escape_preview(_chunk_preview(chunk))}</span></div>',
+                unsafe_allow_html=True,
+            )
             _render_chunk_media(chunk)
 
-
-def _render_diagnostics_panel(state: WorkbenchState) -> None:
-    st.markdown('<div class="section-title">Diagnostics</div>', unsafe_allow_html=True)
-    for diagnostic in state.diagnostics:
-        with st.expander(
-            f"{diagnostic.method.upper()} | {diagnostic.confidence_label} | {diagnostic.result_count} results",
-            expanded=diagnostic.method == "reranked",
-        ):
+    with st.expander("Method confidence and latency", expanded=True):
+        for diagnostic in state.diagnostics:
+            st.markdown(
+                f"**{diagnostic.method.upper()}** | {diagnostic.confidence_label} | "
+                f"{diagnostic.result_count} results"
+            )
             st.progress(diagnostic.confidence)
             st.caption(diagnostic.recommendation)
+        st.caption(
+            f"retrieval={state.timing_ms.get('retrieval', 0):.1f} ms | "
+            f"generation={state.timing_ms.get('generation', 0):.1f} ms | "
+            f"total={state.timing_ms.get('total', 0):.1f} ms"
+        )
 
+    st.markdown("#### Retrieval methods")
     tabs = st.tabs(["BM25", "Dense", "Fusion", "Reranked"])
     result_groups = [
         state.retrieval.bm25_results,
@@ -289,7 +413,7 @@ def _render_diagnostics_panel(state: WorkbenchState) -> None:
         with tab:
             st.dataframe(_results_to_frame(results), use_container_width=True, hide_index=True)
 
-    with st.expander("Debug / Metadata", expanded=False):
+    with st.expander("Debug view", expanded=False):
         st.write(
             {
                 "query": state.query,
@@ -297,8 +421,21 @@ def _render_diagnostics_panel(state: WorkbenchState) -> None:
                 "timing_ms": state.timing_ms,
                 "retrieval_explanation": state.answer.retrieval_explanation,
                 "diagnostics": _diagnostics_to_rows(state.diagnostics),
+                "corpus_warnings": state.corpus_warnings,
             }
         )
+
+
+def _render_empty_chat_state() -> None:
+    st.markdown(
+        """
+        <div class="empty-state">
+          <b>Upload notes or use the sample corpus, then ask a question.</b>
+          <span>The main answer stays here. Retrieval traces, evidence rankings, and debug details are available after each answer.</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _render_evaluation_dashboard() -> None:
@@ -351,11 +488,13 @@ def _results_to_frame(results: list[RetrievalResult]) -> list[dict[str, object]]
             {
                 "rank": result.rank,
                 "score": round(result.score, 4),
+                "method": result.method,
                 "chunk_id": result.chunk_id,
-                "source": result.chunk.source_file,
+                "doc_id": result.chunk.doc_id,
+                "source_file": result.chunk.source_file,
                 "page": result.chunk.page,
                 "type": result.chunk.type,
-                "preview": result.chunk.text[:160],
+                "preview": _chunk_preview(result.chunk, max_chars=160),
                 "image_path": metadata.image_path or "",
                 "caption": metadata.caption or "",
                 "bbox": metadata.bbox or "",
@@ -380,21 +519,6 @@ def _diagnostics_to_rows(
     ]
 
 
-def _render_chunk_metadata(chunk: Chunk) -> None:
-    rows = _chunk_metadata_rows(chunk)
-    if not rows:
-        return
-    st.markdown(
-        "<div class=\"metadata-grid\">"
-        + "".join(
-            f"<div><b>{_escape_preview(label)}</b><span>{_escape_preview(value)}</span></div>"
-            for label, value in rows
-        )
-        + "</div>",
-        unsafe_allow_html=True,
-    )
-
-
 def _render_chunk_media(chunk: Chunk) -> None:
     image_path = chunk.metadata.image_path
     if not image_path:
@@ -404,20 +528,14 @@ def _render_chunk_media(chunk: Chunk) -> None:
         st.image(str(path), caption=chunk.metadata.caption or chunk.chunk_id, width=220)
 
 
-def _chunk_metadata_rows(chunk: Chunk) -> list[tuple[str, str]]:
-    metadata = chunk.metadata
-    rows = []
-    if metadata.image_path:
-        rows.append(("image_path", metadata.image_path))
-    if metadata.bbox:
-        rows.append(("bbox", ", ".join(f"{value:.1f}" for value in metadata.bbox)))
-    if metadata.caption:
-        rows.append(("caption", metadata.caption))
-    if metadata.nearby_text:
-        rows.append(("nearby_text", metadata.nearby_text[:220]))
-    if metadata.table_html:
-        rows.append(("table", metadata.table_html[:220]))
-    return rows
+def _chunk_preview(chunk: Chunk, *, max_chars: int = 240) -> str:
+    if chunk.metadata.caption:
+        text = chunk.metadata.caption
+    elif chunk.metadata.table_html:
+        text = chunk.text or chunk.metadata.table_html
+    else:
+        text = chunk.text
+    return text[:max_chars]
 
 
 def _summarize_metrics(rows: list[dict[str, str]]) -> list[dict[str, object]]:
@@ -531,7 +649,7 @@ def _inject_style() -> None:
         }
         .block-container {
           padding-top: 1.4rem;
-          max-width: 1480px;
+          max-width: 1360px;
         }
         .topline {
           border-bottom: 2px solid var(--graphite);
@@ -549,7 +667,7 @@ def _inject_style() -> None:
         }
         h1 {
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 2.7rem;
+          font-size: 2.85rem;
           line-height: 1;
           margin: .2rem 0 0 0;
           letter-spacing: 0;
@@ -571,39 +689,38 @@ def _inject_style() -> None:
           border-left: 5px solid var(--amber);
           padding-left: .65rem;
         }
-        .workbench-panel,
-        .empty-state {
+        .chat-shell,
+        .empty-state,
+        .scope-chip {
           border: 1px solid var(--line);
           border-left: 5px solid var(--graphite);
-          background: rgba(255,255,255,.55);
-          padding: .85rem;
+          background: rgba(255,255,255,.62);
+          padding: 1rem;
+          margin-bottom: .8rem;
         }
-        .panel-kicker {
+        .scope-chip {
+          padding: .65rem .75rem;
+        }
+        .scope-chip b,
+        .scope-chip span {
+          display: block;
+        }
+        .scope-chip span {
+          color: var(--muted);
+          font-size: .82rem;
+          margin-top: .2rem;
+        }
+        .chat-kicker {
           color: var(--amber);
           font-size: .72rem;
           font-weight: 900;
           letter-spacing: .08rem;
         }
-        .workbench-panel h3 {
-          font-size: 1.05rem;
-          margin: .25rem 0 .75rem 0;
-        }
-        .stat-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: .45rem;
-        }
-        .stat-grid div {
-          border-top: 1px solid var(--line);
-          padding-top: .4rem;
-        }
-        .stat-grid b {
-          display: block;
+        .chat-scope {
+          font-family: Georgia, "Times New Roman", serif;
           font-size: 1.35rem;
-        }
-        .stat-grid span {
-          color: var(--muted);
-          font-size: .8rem;
+          font-weight: 700;
+          margin-top: .15rem;
         }
         .provider-row,
         .side-status {
@@ -643,8 +760,9 @@ def _inject_style() -> None:
         }
         .answer-meta {
           display: flex;
+          flex-wrap: wrap;
           gap: .5rem;
-          margin: .75rem 0 .25rem 0;
+          margin: .65rem 0;
         }
         .answer-meta span {
           background: rgba(13,127,131,.12);
@@ -654,21 +772,13 @@ def _inject_style() -> None:
           font-size: .78rem;
           font-weight: 800;
         }
-        .answer-band {
-          margin-top: .75rem;
-          background: var(--graphite);
-          color: var(--paper);
-          padding: .5rem .75rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: .05rem;
-        }
         .answer-text {
           border: 1px solid var(--graphite);
-          background: rgba(255,255,255,.56);
-          padding: 1rem;
-          font-size: 1.02rem;
-          line-height: 1.55;
+          background: rgba(255,255,255,.7);
+          padding: 1.1rem;
+          font-size: 1.04rem;
+          line-height: 1.58;
+          margin-top: .75rem;
         }
         .empty-state b,
         .empty-state span {
@@ -678,34 +788,21 @@ def _inject_style() -> None:
           color: var(--muted);
           margin-top: .35rem;
         }
-        .chunk-text {
-          color: var(--ink);
-          line-height: 1.45;
-          background: rgba(255,255,255,.5);
-          border-left: 4px solid var(--cyan);
-          padding: .65rem .75rem;
-        }
-        .metadata-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
-          gap: .35rem .65rem;
-          margin: .65rem 0;
-          font-size: .82rem;
-        }
-        .metadata-grid div {
+        .evidence-chip {
           border: 1px solid var(--line);
-          background: rgba(255,255,255,.42);
-          padding: .35rem .45rem;
+          border-left: 4px solid var(--cyan);
+          background: rgba(255,255,255,.56);
+          padding: .65rem .75rem;
+          margin: .5rem 0;
         }
-        .metadata-grid b {
-          color: var(--amber);
+        .evidence-chip b,
+        .evidence-chip span {
           display: block;
-          font-family: "Consolas", monospace;
-          font-size: .74rem;
         }
-        .metadata-grid span {
-          color: var(--ink);
-          overflow-wrap: anywhere;
+        .evidence-chip span {
+          color: var(--muted);
+          margin-top: .25rem;
+          line-height: 1.45;
         }
         .metric-line {
           display: grid;

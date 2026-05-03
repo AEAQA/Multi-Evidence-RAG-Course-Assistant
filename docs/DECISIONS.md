@@ -104,3 +104,23 @@ share calibrated score scales. M7-patch1 therefore presents confidence as a
 simple UI diagnostic derived from the top score, not as a statistical
 probability or model certainty. The label helps users inspect evidence and
 compare methods without changing evaluation metrics.
+
+## Decision 016: Keep M7-patch2 on Streamlit instead of FastAPI/React
+
+Reason:
+
+The existing Streamlit plus app-service-layer architecture already supports
+offline retrieval, grounded generation, evaluation, provider fallback and tests.
+M7-patch2 needs document upload and a more user-friendly chat surface, not a
+backend replacement. FastAPI/React, Chroma, Docker, ASR and TTS remain deferred
+because they would expand deployment and test scope without improving the core
+retrieval-comparison milestone.
+
+## Decision 017: Store uploaded demo documents under ignored local storage
+
+Reason:
+
+Local upload is needed for a credible RAG study assistant demo, but private
+course files must not enter git. Uploaded files and the corpus registry are kept
+under `data/processed/`, which is ignored. The registry stores metadata only and
+chunks are rebuilt from local files when the corpus is loaded.

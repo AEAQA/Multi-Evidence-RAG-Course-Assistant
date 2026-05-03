@@ -219,3 +219,37 @@ Vision caption:
 * must fall back to `MockVisionCaptionClient` on any failure.
 
 ASR remains a mock fallback in M7. Real ASR is an optional later integration.
+
+## M7-patch3 local app-service material selection contract
+
+This is an internal Python app-service contract, not an external HTTP API.
+Streamlit calls the service layer directly.
+
+Material selection input:
+
+```json
+{
+  "mode": "sample | uploaded | combined",
+  "selected_doc_ids": ["abc123def456"]
+}
+```
+
+Behavior:
+
+* `sample` searches only the public synthetic sample corpus;
+* `uploaded` searches uploaded documents;
+* `combined` searches sample corpus plus uploaded documents;
+* when `selected_doc_ids` is empty, the uploaded portion searches all uploaded/indexed documents;
+* when `selected_doc_ids` is non-empty, the uploaded portion is restricted to chunks whose `doc_id` is selected;
+* retrieval outputs remain chunk-level `RetrievalResult` rows.
+
+Accepted upload suffixes:
+
+```text
+.txt
+.md
+.markdown
+.pdf
+```
+
+Unsupported files are reported as upload failures and must not crash the app.

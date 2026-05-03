@@ -2,12 +2,15 @@
 
 Offline-first Data Science in Practice project comparing BM25, dense retrieval, hybrid fusion, reranking, and grounded RAG answer generation over course materials.
 
-This is not a generic chatbot. The system retrieves evidence from local study materials before generating answers with citations.
+This can be described as a RAG-based study assistant or RAG chatbot, but it is
+not a generic LLM chatbox. The core project compares retrieval strategies and
+uses retrieved evidence before generating answers with citations.
 
 ## Current Status
 
-Milestone 7 optional SiliconFlow API mode is implemented. M7-patch1 adds a
-more usable Streamlit Evidence Workbench while preserving offline/mock defaults.
+Milestone 7 optional SiliconFlow API mode is implemented. M7-patch2 adds a
+chat-centered Streamlit RAG Study Chat with local document upload while
+preserving offline/mock defaults.
 
 ## Environment
 
@@ -100,16 +103,30 @@ python scripts/dev.py run
 The app includes:
 
 ```text
-Study Query Workbench
+RAG Study Chat
 Evaluation Dashboard
 ```
 
-The Study Query Workbench uses the public synthetic sample corpus, requires an
-explicit `Run evidence query` click, shows a grounded answer with citations,
-highlights collapsible evidence cards, and exposes BM25, Dense, Fusion, and
-Reranked diagnostics with confidence labels and recommendations. The Evaluation
-Dashboard reads or creates local reports and displays method summary, recall,
-ranking quality, latency, and weak cases.
+The RAG Study Chat lets you upload `.txt`, `.md`, or `.pdf` study materials, choose
+sample/uploaded/combined corpus scope, ask a question, and receive a grounded
+answer with citations. The main page is a three-panel RAG workbench: materials
+and corpus scope on the left, chat in the center, and evidence plus
+BM25/Dense/Fusion/Reranked method outputs on the right. The Evaluation Dashboard
+reads or creates local reports and displays method summary, recall, ranking
+quality, latency, and weak cases.
+
+If no uploaded documents are selected, uploaded retrieval searches all uploaded
+documents. If one or more documents are selected, retrieval is restricted to
+chunks from those selected documents.
+
+Uploaded demo files are saved locally under ignored `data/processed/` paths:
+
+```text
+data/processed/uploads/
+data/processed/corpus_registry.json
+```
+
+Do not commit uploaded course files or generated processed data.
 
 ASR and TTS are not live features in M7-patch1. ASR remains a mock/planned
 status in the UI until a real audio input path and provider client are added.

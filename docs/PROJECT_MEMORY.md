@@ -9,6 +9,8 @@ Current milestone:
 ```text
 Milestone 7: Optional SiliconFlow API-enhanced mode complete
 M7-patch1: Streamlit Evidence Workbench complete
+M7-patch2: Chat-centered RAG Study Chat with local document upload complete
+M7-patch3: Three-panel RAG workbench with material scope refinement complete
 ```
 
 ## What works now
@@ -63,15 +65,27 @@ M7-patch1: Streamlit Evidence Workbench complete
 * Streamlit Page 1 is now `Study Query Workbench` and no longer auto-runs retrieval from the default query text.
 * Evidence chunks are shown in collapsible cards, and BM25/Dense/Fusion/Reranked diagnostics include confidence bars and recommendations.
 * Evaluation Dashboard sections are grouped into method summary, recall coverage, ranking quality, latency and weak cases.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 67 tests.
+* Streamlit Page 1 is now `RAG Study Chat`, with upload/select corpus -> ask question -> answer with citations as the main interaction.
+* `.txt` and `.pdf` files can be uploaded locally from the Streamlit UI.
+* Uploaded documents are stored under ignored `data/processed/uploads/`.
+* Uploaded corpus metadata is stored in ignored `data/processed/corpus_registry.json`.
+* Uploaded PDFs use the existing image-aware `load_pdf_chunks()` path.
+* Corpus scope supports sample only, uploaded only, and sample + uploaded.
+* Retrieval details are available in expanders instead of occupying the main answer surface.
+* Streamlit Page 1 uses a three-panel layout: Materials / Knowledge Base, Chat, and Evidence / Retrieval.
+* Uploaded `.md` and `.markdown` files are supported through the text loader and chunker path.
+* If no uploaded documents are selected, uploaded retrieval searches all uploaded documents by default.
+* If uploaded documents are selected, retrieval is restricted to chunks from those selected `doc_id`s.
+* Final answer evidence is represented by scored reranked `RetrievalResult` rows for the right evidence panel.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 78 tests.
 
 ## What is missing
 
 Remaining items after Milestone 7:
 
 * final report and demo packaging
-* optional uploaded corpus management
 * optional local session history
+* optional richer uploaded document management
 * optional real ASR/TTS demo enhancement
 
 ## Key commands
@@ -95,6 +109,8 @@ python scripts/dev.py api-smoke
 * Real ASR is not implemented in M7. `ASR_PROVIDER` should remain `mock` until a SiliconFlow ASR client and browser audio flow are added.
 * `VISION_PROVIDER` must be a provider name such as `mock` or `siliconflow`; put the model id in `VISION_MODEL`.
 * M7-patch1 method confidence labels are UI diagnostics, not statistically calibrated probabilities.
+* Uploaded files and the local corpus registry live under `data/processed/`, which is ignored by git.
+* M7-patch2 keeps FastAPI/React deferred; Streamlit remains the MVP UI.
 
 ## Next step
 

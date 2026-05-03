@@ -86,6 +86,10 @@ def test_results_to_frame_handles_image_metadata_without_pandas() -> None:
     rows = streamlit_app._results_to_frame([result])
 
     assert isinstance(rows, list)
+    assert rows[0]["doc_id"] == "doc001"
+    assert rows[0]["method"] == "reranked"
+    assert rows[0]["source_file"] == "lecture.pdf"
+    assert rows[0]["chunk_id"] == "doc001_page002_image_0001"
     assert rows[0]["type"] == "image"
     assert rows[0]["image_path"] == "data/processed/images/doc001_p002_img001.png"
     assert rows[0]["caption"] == "A diagram of hybrid retrieval."
