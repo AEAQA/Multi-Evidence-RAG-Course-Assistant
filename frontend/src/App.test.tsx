@@ -57,7 +57,7 @@ const queryResponse = {
       doc_id: "doc-alpha",
       source_file: "alpha_notes.txt",
       page: 2,
-      type: "text",
+      type: "table",
       method: "reranked",
       score: 0.74,
       confidence: 0.74,
@@ -105,7 +105,7 @@ const queryResponse = {
         doc_id: "doc-alpha",
         source_file: "alpha_notes.txt",
         page: 2,
-        type: "text",
+        type: "table",
         preview: "Dense retrieval found semantic evidence."
       },
       {
@@ -129,7 +129,7 @@ const queryResponse = {
         doc_id: "doc-alpha",
         source_file: "alpha_notes.txt",
         page: 2,
-        type: "text",
+        type: "table",
         preview: "Fusion merged method outputs."
       },
       {
@@ -164,7 +164,7 @@ const queryResponse = {
         doc_id: "doc-alpha",
         source_file: "alpha_notes.txt",
         page: 2,
-        type: "text",
+        type: "table",
         preview: "Reranker kept fusion evidence."
       }
     ]
@@ -198,17 +198,7 @@ const insufficientResponse = {
   warnings: ["No final evidence was selected."]
 };
 
-const evaluationSummary = {
-  available: true,
-  summary_by_method: {
-    bm25: { recall_at_5: 1, mrr_at_5: 0.8, ndcg_at_5: 0.9 },
-    reranked: { recall_at_5: 1, mrr_at_5: 0.9, ndcg_at_5: 0.95 }
-  },
-  latency_by_method: { bm25: 3, reranked: 5 },
-  report_paths: {}
-};
-
-describe("Stage 3 React workbench", () => {
+describe("React product workbench", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.stubGlobal("fetch", vi.fn(mockFetch));
@@ -222,6 +212,16 @@ describe("Stage 3 React workbench", () => {
     expect(screen.getByRole("complementary", { name: /evidence intelligence/i })).toBeInTheDocument();
     expect(screen.getByText(/Ask a question after choosing the corpus scope/i)).toBeInTheDocument();
     expect(screen.getByText(/Awaiting Query/i)).toBeInTheDocument();
+  });
+
+  test("does not load or show the offline benchmark in the product UI", async () => {
+    const fetchSpy = vi.mocked(fetch);
+    render(<App />);
+
+    await screen.findByText("alpha_notes.txt");
+
+    expect(screen.queryByText(/Offline Benchmark/i)).not.toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => url === "/api/evaluation/summary")).toBe(false);
   });
 
   test("loads documents and shows chunk counts and type summary", async () => {
@@ -277,7 +277,7 @@ describe("Stage 3 React workbench", () => {
     expect(screen.getByTestId("evidence-card-E1")).toHaveClass("evidence-card-active");
   });
 
-  test("renders retrieval flow, method tabs, and diagnostics", async () => {
+  test("renders retrieval flow, method tabs, diagnostics, and text-like table evidence", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -291,13 +291,8 @@ describe("Stage 3 React workbench", () => {
 
     await user.click(screen.getByText("Diagnostics"));
     expect(screen.getByText(/Inspect cited evidence/i)).toBeInTheDocument();
-
-    await user.click(screen.getByText("Offline Benchmark"));
-    const metricsPanel = screen.getByText("Offline Benchmark").closest("details");
-    expect(
-      within(metricsPanel as HTMLElement).getByText(/fixed eval set benchmark, not the current query/i)
-    ).toBeInTheDocument();
-    expect(within(metricsPanel as HTMLElement).getAllByText(/recall_at_5: 1.000/i)).toHaveLength(2);
+    expect(within(screen.getByTestId("evidence-card-E2")).getByText("Text evidence")).toBeInTheDocument();
+    expect(screen.queryByText("table")).not.toBeInTheDocument();
   });
 
   test("keeps detailed method analysis hidden until requested", async () => {
@@ -335,6 +330,33 @@ describe("Stage 3 React workbench", () => {
     expect(screen.getByText("Final evidence coverage")).toBeInTheDocument();
     expect(screen.getByText("Citation coverage")).toBeInTheDocument();
   });
+
+  test("resizes left and right panels with drag handles", async () => {
+    render(<App />);
+
+    const shell = await screen.findByTestId("app-shell");
+    expect(shell).toHaveStyle({
+      gridTemplateColumns: "300px 8px minmax(420px, 1fr) 8px 390px"
+    });
+
+    fireEvent.mouseDown(screen.getByRole("separator", { name: /resize knowledge base panel/i }), {
+      clientX: 300
+    });
+    fireEvent.mouseMove(window, { clientX: 340 });
+    fireEvent.mouseUp(window);
+    expect(shell).toHaveStyle({
+      gridTemplateColumns: "340px 8px minmax(420px, 1fr) 8px 390px"
+    });
+
+    fireEvent.mouseDown(screen.getByRole("separator", { name: /resize evidence panel/i }), {
+      clientX: 900
+    });
+    fireEvent.mouseMove(window, { clientX: 860 });
+    fireEvent.mouseUp(window);
+    expect(shell).toHaveStyle({
+      gridTemplateColumns: "340px 8px minmax(420px, 1fr) 8px 430px"
+    });
+  });
 });
 
 async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -367,9 +389,6 @@ async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
       return jsonResponse(insufficientResponse);
     }
     return jsonResponse(queryResponse);
-  }
-  if (url === "/api/evaluation/summary") {
-    return jsonResponse(evaluationSummary);
   }
   if (url.startsWith("/api/documents/") && init?.method === "DELETE") {
     return jsonResponse({ documents: [], total_chunks: 0 });

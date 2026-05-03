@@ -64,6 +64,9 @@
 * Stage 4 React per-query method analysis behind `Analyze methods`.
 * Current-query coverage, rank-overlap, latency, score-distribution, citation-coverage and source-diversity cards derived from `/api/query`.
 * Safe insufficient-evidence method-analysis empty state.
+* Stage 5A React panel resize handles for Knowledge Base and Evidence Intelligence.
+* CourseMate-style React visual polish with a slim top bar, softer rounded panels, lighter chat bubbles and blue/cyan accents.
+* Split Evidence Intelligence UI into smaller evidence card, retrieval flow, method analysis and score bar components.
 
 ### Changed
 
@@ -109,6 +112,10 @@
 * Right-panel `Evaluation metrics` is now `Offline Benchmark` and explicitly
   labels Recall/MRR/NDCG as fixed eval-set metrics rather than current-query
   scores.
+* React product UI no longer loads or displays `Offline Benchmark`; fixed
+  evaluation remains available through the API, reports and `scripts/dev.py eval`.
+* Frontend evidence labels now treat `table` and unknown chunk types as
+  text-like evidence while preserving `image` as image evidence.
 
 ### Known cleanup notes
 

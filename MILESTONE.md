@@ -410,3 +410,30 @@ Delivered:
 Status: planned.
 
 Goal: document startup, demo flow, fallback behavior, API smoke checks, and final presentation steps.
+
+### Stage 5A: React Product UI Simplification + CourseMate-Style Polish
+
+Status: complete.
+
+Goal: make the React product UI lighter and closer to the CourseMate interaction
+style while preserving RAG evidence, inline citations and current-query method
+analysis.
+
+Delivered:
+
+* Removed `Offline Benchmark` from the React main UI. The evaluation API,
+  reports and `python scripts/dev.py eval` pipeline remain available for
+  reproducible offline assessment.
+* Added draggable left and right panel resize handles with bounded widths.
+* Restyled the React UI with a slim top bar, softer panels, rounded controls,
+  lighter chat bubbles and blue/cyan product accents.
+* Split the right Evidence Intelligence implementation into smaller components
+  for evidence cards, retrieval flow, method analysis and score bars.
+* Downgraded `table` and unknown evidence types to text-like display labels in
+  the frontend; image chunks remain labeled as image evidence.
+* Verified `python scripts/dev.py ui-test` passing 10 mocked React tests.
+* Verified `npm.cmd run build` passing after sandbox escalation for Vite/esbuild
+  child-process execution.
+* Verified backend regression with 13 focused FastAPI/query tests, full
+  `python scripts/dev.py test` passing 91 tests, `python scripts/dev.py eval`
+  completing reports and `python -m compileall scripts src tests app` passing.

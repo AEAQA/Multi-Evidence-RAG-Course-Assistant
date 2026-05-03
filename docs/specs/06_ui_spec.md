@@ -421,7 +421,7 @@ Right panel:
 * shows `final_evidence` cards before diagnostics;
 * highlights and scrolls to the matching card when an inline citation is clicked;
 * renders retrieval flow stages, BM25/Dense/Fusion/Reranker method tabs,
-  score bars, timing, scope, suggestions and collapsed offline benchmark.
+  score bars, timing, scope, suggestions and current-query method analysis.
 
 Verification:
 
@@ -473,3 +473,44 @@ Verification:
   child-process execution.
 * Backend regression remains unchanged because Stage 4 does not alter the API
   contract.
+
+## Stage 5A CourseMate-Style Product Polish
+
+The React product UI keeps the RAG workbench structure but adopts lighter
+CourseMate-inspired interaction and visual treatment.
+
+Layout behavior:
+
+* a slim top header shows product identity and safe runtime/API state;
+* the three panels remain Knowledge Base, Grounded Study Chat and Evidence
+  Intelligence;
+* draggable vertical handles resize the left and right side panels;
+* resize width bounds are enforced in the frontend and are not persisted in v1;
+* below the responsive breakpoint, resize handles are hidden and the layout
+  falls back to a single column.
+
+Evidence and evaluation behavior:
+
+* React no longer calls `/api/evaluation/summary` during normal startup;
+* the React main UI no longer renders `Offline Benchmark`;
+* offline evaluation remains available through the FastAPI evaluation endpoints,
+  reports and `python scripts/dev.py eval`;
+* `image` chunks display as `Image evidence`;
+* `text`, `table` and unknown chunks display as `Text evidence` until a later
+  milestone adds a true table preview.
+
+Visual direction:
+
+* use softer panels, 9-12px radii, light shadows, compact rounded controls and
+  blue/cyan accents;
+* keep the center chat app-like and approachable;
+* keep the right panel evidence-first so the product is still visibly a RAG
+  retrieval workbench, not a generic chatbot.
+
+Verification:
+
+* `python scripts/dev.py ui-test` passes 10 mocked React tests after Stage 5A.
+* `npm.cmd run build` passes after sandbox escalation for Vite/esbuild
+  child-process execution.
+* `python scripts/dev.py test` and `python scripts/dev.py eval` continue to
+  pass because the offline evaluation pipeline was preserved.

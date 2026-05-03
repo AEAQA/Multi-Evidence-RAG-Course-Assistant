@@ -191,3 +191,24 @@ set, while the React right panel derives current-query proxy diagnostics from
 the existing `/api/query` response. This avoids API churn and prevents the UI
 from presenting heuristic coverage, overlap, latency or citation-resolution
 signals as ground-truth evaluation scores.
+
+## Decision 024: Remove fixed benchmark metrics from the primary React UI
+
+Reason:
+
+The fixed eval-set benchmark is useful for reports and reproducible method
+comparison, but it distracts from the product task when users inspect a single
+query. Stage 5A keeps `/api/evaluation/*`, reports and `python scripts/dev.py
+eval`, but removes the benchmark section from the React main interface. The
+right panel now focuses on current-query evidence, citation linking, retrieval
+flow and proxy method diagnostics.
+
+## Decision 025: Keep panel resize state local and non-persistent
+
+Reason:
+
+Resizable side panels improve the CourseMate-style workbench experience, but
+persistent layout preferences are not needed for the current demo milestone.
+Stage 5A keeps left/right widths in React state only, avoiding localStorage
+schema, reset controls and extra test cases while still allowing users to
+adjust the live view.

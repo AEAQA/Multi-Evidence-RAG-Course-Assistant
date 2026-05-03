@@ -133,6 +133,19 @@ Stage 3: React three-panel product UI complete
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 4.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 4 and rewrites retrieval metrics, latency metrics and error cases reports.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 4.
+* Stage 5A React product UI simplification is implemented.
+* React no longer loads `/api/evaluation/summary` on startup and no longer shows `Offline Benchmark` in the primary UI.
+* The evaluation API, reports and `python scripts/dev.py eval` pipeline remain intact for fixed eval-set assessment.
+* The React layout now has bounded draggable resize handles for the left Knowledge Base and right Evidence Intelligence panels.
+* Evidence display now labels `image` chunks as `Image evidence` and downgrades `table` or unknown types to `Text evidence` until a real table preview exists.
+* Evidence Intelligence code is split into evidence card, retrieval flow, method analysis and score bar components.
+* The UI styling is updated toward a lighter CourseMate-like product surface with a slim top bar, softer panels, rounded controls and blue/cyan accents.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test` passes 10 mocked React tests after Stage 5A.
+* `C:\Program Files\nodejs\npm.cmd run build` passes after sandbox escalation for Vite/esbuild child-process execution after Stage 5A.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test -- tests\unit\test_fastapi_api.py tests\unit\test_query_service.py -vv` passes 13 focused backend regression tests after Stage 5A.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 5A.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 5A and rewrites retrieval metrics, latency metrics and error cases reports.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 5A.
 
 ## What is missing
 
@@ -175,4 +188,4 @@ python scripts/dev.py api-smoke
 
 ## Next step
 
-Continue with Stage 5 demo packaging and full-stack browser verification.
+Continue with full-stack browser verification and Stage 5 demo packaging.

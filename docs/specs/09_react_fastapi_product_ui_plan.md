@@ -18,7 +18,8 @@ Core product behavior:
 * the answer is generated from a grounded prompt using the selected evidence;
 * inline citations such as `[E1]` appear directly after supported claims;
 * the right panel explains evidence, retrieval flow, per-query method
-  diagnostics, latency, and the fixed offline benchmark.
+  diagnostics and latency; fixed benchmark evaluation stays outside the primary
+  React conversation UI.
 
 ## Required References
 
@@ -193,15 +194,15 @@ Implementation status:
 
 * `frontend/` contains a Vite + React + TypeScript product UI.
 * The UI consumes the Stage 1/2 FastAPI adapter through typed client functions
-  for status, documents, upload, delete, query and evaluation summary.
+  for status, documents, upload, delete and query.
 * The page is implemented as a full-height three-panel RAG workbench:
   Knowledge Base, Grounded Study Chat and Evidence Intelligence.
 * Citation markers are parsed from `answer.text` and rendered as inline
   anchors. Resolved markers call the evidence panel highlight/scroll behavior;
   unresolved markers remain readable plain text.
 * The Evidence Intelligence panel renders final evidence cards first, then
-  retrieval flow, BM25/Dense/Fusion/Reranker method tabs, timing/scope
-  diagnostics and a collapsed offline benchmark.
+  retrieval flow, BM25/Dense/Fusion/Reranker method tabs and timing/scope
+  diagnostics.
 * `python scripts/dev.py ui` runs the Vite development server and
   `python scripts/dev.py ui-test` runs the mocked frontend test suite.
 
@@ -252,13 +253,63 @@ focused FastAPI/query regression passing 13 tests, `python scripts/dev.py test`
 passing 91 tests, `python scripts/dev.py eval` completing retrieval evaluation
 reports, and `python -m compileall scripts src tests app` passing.
 
+Stage 5A follow-up:
+
+The Stage 4 `Offline Benchmark` UI section was later removed from the React main
+interface. The evaluation pipeline and API endpoints remain available for
+offline assessment.
+
+## Stage 5A: React Product UI Simplification + CourseMate-Style Polish
+
+The React product UI should feel closer to the CourseMate reference while
+remaining a RAG workbench rather than a generic chat app.
+
+Rules:
+
+* remove `Offline Benchmark` from the React main UI; keep evaluation endpoints,
+  reports and `python scripts/dev.py eval` for offline assessment and final
+  reporting;
+* use a slim header, softer panel treatment, rounded controls, lighter chat
+  bubbles and blue/cyan accents inspired by CourseMate;
+* keep the three-panel layout and the right-side evidence/method analysis
+  surface;
+* add bounded draggable resize handles between Knowledge Base, Chat and
+  Evidence Intelligence;
+* display `image` chunks as image evidence, and display `text`, `table` and
+  unknown chunk types as text evidence unless a later milestone adds true table
+  preview;
+* keep implementation modular with typed React components and mocked frontend
+  tests rather than collapsing the product UI into a single JSX demo file.
+
+Implementation status:
+
+* Stage 5A removes the React startup call to `/api/evaluation/summary`.
+* Evidence Intelligence no longer renders offline benchmark metrics; it focuses
+  on current-query evidence, retrieval flow, method rows, diagnostics and
+  `Analyze methods`.
+* The layout now has draggable left and right resize handles.
+* Evidence UI code is split into evidence cards, retrieval flow, method
+  analysis and score bar components.
+* Mocked React tests cover no benchmark request, resize behavior, text-like
+  table evidence display, citation linking and current-query analysis.
+
+Stage 5A verification note:
+
+Stage 5A is verified with `python scripts/dev.py ui-test` passing 10 mocked
+React tests, `npm.cmd run build` passing after sandbox escalation for
+Vite/esbuild, focused FastAPI/query regression passing 13 tests,
+`python scripts/dev.py test` passing 91 tests, `python scripts/dev.py eval`
+completing reports, and `python -m compileall scripts src tests app` passing.
+
 ## Stage 5: Demo Packaging
 
 Final delivery should include:
 
 * README instructions for FastAPI and React startup;
 * Streamlit fallback instructions;
-* demo script covering upload, scope selection, question answering, inline citations, evidence inspection, method comparison, and evaluation metrics;
+* demo script covering upload, scope selection, question answering, inline
+  citations, evidence inspection, method comparison, current-query analysis and
+  offline evaluation commands;
 * limitations and fallback notes;
 * API smoke-test instructions for SiliconFlow without committing secrets.
 
