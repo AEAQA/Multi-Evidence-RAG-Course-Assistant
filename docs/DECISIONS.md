@@ -179,3 +179,15 @@ backup. Vite + React + TypeScript provides a small frontend layer over the
 existing FastAPI adapter without changing the RAG core, adding a database,
 introducing streaming, or requiring API keys. The frontend uses mocked fetch
 responses in tests so UI behavior remains offline-first.
+
+## Decision 023: Separate per-query diagnostics from offline benchmark metrics
+
+Reason:
+
+Arbitrary user questions do not have labeled relevant chunk IDs, so true
+Recall@k, MRR and NDCG cannot be computed for every chat turn. Stage 4 keeps
+the reproducible evaluation pipeline as `Offline Benchmark` for the fixed eval
+set, while the React right panel derives current-query proxy diagnostics from
+the existing `/api/query` response. This avoids API churn and prevents the UI
+from presenting heuristic coverage, overlap, latency or citation-resolution
+signals as ground-truth evaluation scores.

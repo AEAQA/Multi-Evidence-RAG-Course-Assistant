@@ -61,6 +61,9 @@
 * Inline citation-anchor rendering and evidence-card highlight behavior for markers such as `[E1]`.
 * Mocked React tests for three-panel rendering, document state, upload failure, scope payloads, citation linking, retrieval method tabs and diagnostics.
 * `python scripts/dev.py ui` and `python scripts/dev.py ui-test` commands.
+* Stage 4 React per-query method analysis behind `Analyze methods`.
+* Current-query coverage, rank-overlap, latency, score-distribution, citation-coverage and source-diversity cards derived from `/api/query`.
+* Safe insufficient-evidence method-analysis empty state.
 
 ### Changed
 
@@ -99,8 +102,13 @@
 * Mock LLM fallback now produces deterministic natural-language answers instead of concatenating raw chunk text behind `Based on the retrieved evidence`.
 * QueryService now avoids trailing `References:` blocks for grounded answers and preserves inline marker-to-evidence mapping.
 * `.gitignore` now ignores local frontend dependency/build/test artifacts.
+* `.gitignore` now ignores TypeScript build-info files and Vite config emit
+  artifacts produced by frontend production builds.
 * `scripts/dev.py` resolves `npm.cmd` on Windows and adds the common Node
   install directory to child-process PATH for frontend commands.
+* Right-panel `Evaluation metrics` is now `Offline Benchmark` and explicitly
+  labels Recall/MRR/NDCG as fixed eval-set metrics rather than current-query
+  scores.
 
 ### Known cleanup notes
 

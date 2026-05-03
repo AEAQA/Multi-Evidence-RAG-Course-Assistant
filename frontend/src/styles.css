@@ -426,6 +426,133 @@ button:disabled {
   margin-bottom: 10px;
 }
 
+.analysis-toggle {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  background: #f2f4ed;
+  padding: 10px;
+}
+
+.analysis-toggle p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.analysis-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  border: 1px solid var(--line-strong);
+  background: #f8faf3;
+  padding: 12px;
+}
+
+.analysis-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analysis-header h3,
+.analysis-card h4 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.analysis-header p,
+.analysis-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.analysis-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: #fffef8;
+  padding: 10px;
+}
+
+.analysis-card.wide {
+  grid-column: 1 / -1;
+}
+
+.analysis-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.analysis-row strong {
+  color: var(--ink);
+}
+
+.analysis-row .score-track {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+.score-distribution {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.distribution-group {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.distribution-row .score-track {
+  margin-top: 0;
+}
+
+.diversity-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.diversity-list strong {
+  border: 1px solid var(--line);
+  background: #edf0e8;
+  color: var(--ink);
+  padding: 3px 6px;
+}
+
 .evidence-topline strong {
   display: inline-grid;
   place-items: center;
@@ -498,6 +625,13 @@ pre {
   display: grid;
   gap: 8px;
   margin-top: 10px;
+}
+
+.benchmark-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .metric-table article {

@@ -377,11 +377,33 @@ Delivered:
 * Verified full local/offline Python suite with `python scripts/dev.py test`
   passing 91 tests and `python scripts/dev.py eval` completing reports.
 
-### Stage 4: Evaluation Visualization
+### Stage 4: Per-Query Retrieval Method Analysis
 
-Status: planned.
+Status: complete.
 
-Goal: integrate retrieval and evaluation metrics into the right-side Evidence Intelligence panel using visual summaries.
+Goal: make the right-side Evidence Intelligence panel explain the current query
+with proxy method diagnostics while keeping fixed Recall/MRR/NDCG reports as a
+clearly labeled offline benchmark.
+
+Delivered:
+
+* Added an `Analyze methods` control to the React Evidence Intelligence panel.
+* Current-query analysis is derived from the existing `/api/query` response
+  without rerunning retrieval or changing the FastAPI contract.
+* The analysis view shows final evidence coverage, method rank agreement,
+  latency bars, score distributions, citation coverage and source/type
+  diversity.
+* Insufficient-evidence responses show a safe empty-state message while still
+  allowing retrieved candidates to be inspected.
+* Renamed collapsed `Evaluation metrics` to `Offline Benchmark` and clarified
+  that Recall/MRR/NDCG come from the fixed evaluation set, not the active
+  conversation.
+* Verified `python scripts/dev.py ui-test` passing 8 mocked React tests.
+* Verified `npm.cmd run build` passing after sandbox escalation for Vite/esbuild
+  child-process execution.
+* Verified backend regression with 13 focused FastAPI/query tests, full
+  `python scripts/dev.py test` passing 91 tests, `python scripts/dev.py eval`
+  completing reports and `python -m compileall scripts src tests app` passing.
 
 ### Stage 5: Demo Packaging
 

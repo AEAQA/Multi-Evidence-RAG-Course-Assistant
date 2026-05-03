@@ -83,6 +83,17 @@ const queryResponse = {
         page: 1,
         type: "text",
         preview: "BM25 found lexical evidence."
+      },
+      {
+        rank: 2,
+        score: 1.7,
+        method: "bm25",
+        chunk_id: "chunk-3",
+        doc_id: "doc-alpha",
+        source_file: "alpha_notes.txt",
+        page: 3,
+        type: "text",
+        preview: "BM25 found another lexical candidate."
       }
     ],
     dense: [
@@ -96,6 +107,17 @@ const queryResponse = {
         page: 2,
         type: "text",
         preview: "Dense retrieval found semantic evidence."
+      },
+      {
+        rank: 2,
+        score: 0.71,
+        method: "dense",
+        chunk_id: "chunk-3",
+        doc_id: "doc-alpha",
+        source_file: "alpha_notes.txt",
+        page: 3,
+        type: "text",
+        preview: "Dense retrieval found a nearby concept."
       }
     ],
     fusion: [
@@ -109,6 +131,17 @@ const queryResponse = {
         page: 2,
         type: "text",
         preview: "Fusion merged method outputs."
+      },
+      {
+        rank: 2,
+        score: 0.03,
+        method: "fusion",
+        chunk_id: "chunk-1",
+        doc_id: "doc-alpha",
+        source_file: "alpha_notes.txt",
+        page: 1,
+        type: "text",
+        preview: "Fusion retained lexical evidence."
       }
     ],
     reranked: [
@@ -122,6 +155,17 @@ const queryResponse = {
         page: 1,
         type: "text",
         preview: "Reranker selected final evidence."
+      },
+      {
+        rank: 2,
+        score: 0.74,
+        method: "reranked",
+        chunk_id: "chunk-2",
+        doc_id: "doc-alpha",
+        source_file: "alpha_notes.txt",
+        page: 2,
+        type: "text",
+        preview: "Reranker kept fusion evidence."
       }
     ]
   },
@@ -139,6 +183,19 @@ const queryResponse = {
   provider_status: { by_component: {} },
   warnings: [],
   suggestions: ["Inspect cited evidence before trusting the answer."]
+};
+
+const insufficientResponse = {
+  ...queryResponse,
+  query: "unanswerable question",
+  answer: {
+    ...queryResponse.answer,
+    text: "The selected materials do not provide enough evidence to answer.",
+    grounding_status: "insufficient_evidence"
+  },
+  citations: [],
+  final_evidence: [],
+  warnings: ["No final evidence was selected."]
 };
 
 const evaluationSummary = {
@@ -235,9 +292,48 @@ describe("Stage 3 React workbench", () => {
     await user.click(screen.getByText("Diagnostics"));
     expect(screen.getByText(/Inspect cited evidence/i)).toBeInTheDocument();
 
-    await user.click(screen.getByText("Evaluation metrics"));
-    const metricsPanel = screen.getByText("Evaluation metrics").closest("details");
+    await user.click(screen.getByText("Offline Benchmark"));
+    const metricsPanel = screen.getByText("Offline Benchmark").closest("details");
+    expect(
+      within(metricsPanel as HTMLElement).getByText(/fixed eval set benchmark, not the current query/i)
+    ).toBeInTheDocument();
     expect(within(metricsPanel as HTMLElement).getAllByText(/recall_at_5: 1.000/i)).toHaveLength(2);
+  });
+
+  test("keeps detailed method analysis hidden until requested", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "What does reranking do?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await screen.findByRole("tab", { name: "BM25" });
+    expect(screen.queryByRole("region", { name: /per-query method analysis/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Analyze methods" }));
+
+    expect(screen.getByRole("region", { name: /per-query method analysis/i })).toBeInTheDocument();
+    expect(screen.getByText("Final evidence coverage")).toBeInTheDocument();
+    expect(screen.getByText("Rank agreement")).toBeInTheDocument();
+    expect(screen.getByText("Latency by stage")).toBeInTheDocument();
+    expect(screen.getByText("Score distribution")).toBeInTheDocument();
+    expect(screen.getByText("Citation coverage")).toBeInTheDocument();
+    expect(screen.getByText("Source diversity")).toBeInTheDocument();
+    expect(screen.getByText("BM25 vs Dense")).toBeInTheDocument();
+    expect(screen.getAllByText("2/2").length).toBeGreaterThan(0);
+  });
+
+  test("shows a safe method-analysis empty state for insufficient evidence", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "unanswerable question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(await screen.findByRole("button", { name: "Analyze methods" }));
+
+    expect(screen.getByText(/No final evidence available/i)).toBeInTheDocument();
+    expect(screen.getByText("Final evidence coverage")).toBeInTheDocument();
+    expect(screen.getByText("Citation coverage")).toBeInTheDocument();
   });
 });
 
@@ -266,6 +362,10 @@ async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     });
   }
   if (url === "/api/query") {
+    const body = init?.body ? JSON.parse(String(init.body)) : {};
+    if (String(body.query).includes("unanswerable")) {
+      return jsonResponse(insufficientResponse);
+    }
     return jsonResponse(queryResponse);
   }
   if (url === "/api/evaluation/summary") {

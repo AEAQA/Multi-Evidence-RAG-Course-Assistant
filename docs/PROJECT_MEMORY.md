@@ -123,6 +123,16 @@ Stage 3: React three-panel product UI complete
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test` passes 6 mocked React tests after Node/npm installation.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 3 frontend verification.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 3 and rewrites retrieval metrics, latency metrics and error cases reports.
+* Stage 4 per-query retrieval method analysis is implemented in the React Evidence Intelligence panel.
+* `Analyze methods` derives current-query coverage, overlap, latency, score distribution, citation coverage and source/type diversity from the existing `/api/query` response without rerunning RAG.
+* The fixed evaluation section is now labeled `Offline Benchmark` and explains that Recall/MRR/NDCG come from the fixed eval set, not the active conversation.
+* Insufficient-evidence query responses show a safe method-analysis empty state instead of pretending current-query Recall/MRR/NDCG are available.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test` passes 8 mocked React tests after Stage 4.
+* `C:\Program Files\nodejs\npm.cmd run build` passes after sandbox escalation for Vite/esbuild child-process execution.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test -- tests\unit\test_fastapi_api.py tests\unit\test_query_service.py -vv` passes 13 focused backend regression tests after Stage 4.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 4.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 4 and rewrites retrieval metrics, latency metrics and error cases reports.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 4.
 
 ## What is missing
 
@@ -165,5 +175,4 @@ python scripts/dev.py api-smoke
 
 ## Next step
 
-Continue with Stage 4 evaluation visualization polish and full-stack browser
-verification.
+Continue with Stage 5 demo packaging and full-stack browser verification.

@@ -41,6 +41,9 @@ reports/figures/
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # OS/editor
 .DS_Store

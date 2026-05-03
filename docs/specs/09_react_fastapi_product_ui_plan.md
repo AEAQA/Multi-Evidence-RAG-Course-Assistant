@@ -17,7 +17,8 @@ Core product behavior:
 * the backend retrieves chunk-level evidence using BM25, dense retrieval, hybrid fusion, and reranking;
 * the answer is generated from a grounded prompt using the selected evidence;
 * inline citations such as `[E1]` appear directly after supported claims;
-* the right panel explains evidence, retrieval flow, method comparison, latency, and evaluation metrics.
+* the right panel explains evidence, retrieval flow, per-query method
+  diagnostics, latency, and the fixed offline benchmark.
 
 ## Required References
 
@@ -179,7 +180,7 @@ Right panel:
 * retrieval flow: BM25 -> Dense -> Fusion -> Reranker -> Final Evidence;
 * BM25/Dense/Fusion/Reranker method comparison;
 * score bars, latency badges, and method contribution summary;
-* collapsible evaluation metrics and diagnostics.
+* collapsible diagnostics and a clearly labeled offline benchmark.
 
 Citation behavior:
 
@@ -200,7 +201,7 @@ Implementation status:
   unresolved markers remain readable plain text.
 * The Evidence Intelligence panel renders final evidence cards first, then
   retrieval flow, BM25/Dense/Fusion/Reranker method tabs, timing/scope
-  diagnostics and collapsed evaluation metrics.
+  diagnostics and a collapsed offline benchmark.
 * `python scripts/dev.py ui` runs the Vite development server and
   `python scripts/dev.py ui-test` runs the mocked frontend test suite.
 
@@ -210,16 +211,46 @@ Stage 3 is verified with `python scripts/dev.py ui-test` passing 6 mocked React
 tests, `python scripts/dev.py test` passing 91 local/offline Python tests, and
 `python scripts/dev.py eval` completing retrieval evaluation reports.
 
-## Stage 4: Evaluation Visualization
+## Stage 4: Per-Query Retrieval Method Analysis + Offline Benchmark
 
-Evaluation should support the data science assessment without dominating the product UI.
+Evaluation should support the data science assessment without implying that
+fixed benchmark metrics are available for arbitrary user questions.
 
 Rules:
 
-* Recall@k, MRR, NDCG, latency, and error cases are integrated into the right panel;
-* show metrics with visual bars, small cards, or compact charts rather than raw numbers only;
-* keep raw debug tables and error cases collapsed by default;
-* preserve reproducible offline evaluation.
+* the right panel defaults to current-query evidence, retrieval flow and final
+  evidence;
+* `Analyze methods` expands a current-query analysis derived from the existing
+  `/api/query` payload, without rerunning RAG;
+* current-query analysis may show proxy diagnostics such as final evidence
+  coverage, top-k overlap, latency bars, score distribution, citation coverage
+  and source/type diversity;
+* do not label these proxy diagnostics as Recall@k, MRR or NDCG because those
+  require labeled relevant chunk IDs;
+* fixed Recall@k, MRR, NDCG, latency and error-case reports remain available in
+  a collapsed `Offline Benchmark` section;
+* `Offline Benchmark` must clearly state that it comes from the fixed eval set
+  and is not a score for the active conversation;
+* preserve reproducible offline evaluation through `python scripts/dev.py eval`.
+
+Implementation status:
+
+* Stage 4 is implemented in the React Evidence Intelligence panel with no
+  FastAPI contract change.
+* The frontend derives per-query coverage, overlap, latency, score,
+  citation-resolution and diversity summaries from `retrieval`,
+  `retrieval_trace`, `timing`, `final_evidence` and `citations`.
+* Mocked React tests cover the hidden-by-default analysis view, the `Analyze
+  methods` interaction, offline benchmark labeling and insufficient-evidence
+  empty state.
+
+Stage 4 verification note:
+
+Stage 4 is verified with `python scripts/dev.py ui-test` passing 8 mocked React
+tests, `npm.cmd run build` passing after sandbox escalation for Vite/esbuild,
+focused FastAPI/query regression passing 13 tests, `python scripts/dev.py test`
+passing 91 tests, `python scripts/dev.py eval` completing retrieval evaluation
+reports, and `python -m compileall scripts src tests app` passing.
 
 ## Stage 5: Demo Packaging
 

@@ -337,7 +337,10 @@ Right panel is the data science explanation layer:
 * BM25 -> Dense -> Fusion -> Reranker -> Final Evidence flow;
 * BM25, Dense, Fusion, and Reranker method comparison;
 * score bars, latency badges, method contribution summary;
-* Recall@k, MRR, NDCG, latency, and error cases in collapsible diagnostics.
+* per-query retrieval method analysis behind an `Analyze methods` control;
+* fixed Recall@k, MRR, NDCG, latency, and error cases in a collapsed
+  `Offline Benchmark` section that is explicitly labeled as fixed eval-set
+  data.
 
 Citation interaction:
 
@@ -418,7 +421,7 @@ Right panel:
 * shows `final_evidence` cards before diagnostics;
 * highlights and scrolls to the matching card when an inline citation is clicked;
 * renders retrieval flow stages, BM25/Dense/Fusion/Reranker method tabs,
-  score bars, timing, scope, suggestions and collapsed evaluation metrics.
+  score bars, timing, scope, suggestions and collapsed offline benchmark.
 
 Verification:
 
@@ -426,3 +429,47 @@ Verification:
   intended offline UI behavior.
 * `python scripts/dev.py test` passes the full local/offline Python suite after
   the React UI addition.
+
+## Stage 4 Per-Query Method Analysis
+
+The React Evidence Intelligence panel separates current-query diagnostics from
+fixed benchmark evaluation.
+
+Default right-panel behavior:
+
+* show cited `final_evidence` first;
+* show the BM25 -> Dense -> Fusion -> Reranker -> Final Evidence flow;
+* show method tabs for top-k rows;
+* keep detailed method analysis hidden until the user clicks `Analyze methods`;
+* keep fixed evaluation reports collapsed as `Offline Benchmark`.
+
+`Analyze methods` behavior:
+
+* derives analysis from the active `/api/query` response and does not call the
+  backend again;
+* computes final-evidence coverage for BM25, Dense, Fusion and Reranker top-k
+  rows;
+* shows rank agreement as top-k overlap between retrieval methods;
+* shows latency bars for the current query;
+* shows method score distributions with compact bars;
+* shows citation coverage by checking answer markers against returned
+  citations;
+* shows source and chunk-type diversity across final evidence;
+* for insufficient evidence, shows a safe empty state rather than pretending
+  Recall/MRR/NDCG can be computed.
+
+`Offline Benchmark` behavior:
+
+* uses `/api/evaluation/summary`;
+* is collapsed by default;
+* states that metrics come from the fixed eval set and are not current-query
+  scores;
+* remains useful for final reports and reproducible method comparison.
+
+Verification:
+
+* `python scripts/dev.py ui-test` passes 8 mocked React tests after Stage 4.
+* `npm.cmd run build` passes after sandbox escalation for Vite/esbuild
+  child-process execution.
+* Backend regression remains unchanged because Stage 4 does not alter the API
+  contract.
