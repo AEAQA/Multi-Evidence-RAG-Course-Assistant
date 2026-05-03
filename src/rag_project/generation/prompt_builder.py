@@ -21,10 +21,11 @@ def build_grounded_prompt(
     selected_chunks = evidence_chunks[:max_evidence]
     context_blocks = []
     for index, chunk in enumerate(selected_chunks, start=1):
+        evidence_id = f"E{index}"
         context_blocks.append(
             "\n".join(
                 [
-                    f"[Evidence {index}]",
+                    f"[{evidence_id}]",
                     f"chunk_id: {chunk.chunk_id}",
                     f"source_file: {chunk.source_file}",
                     f"page: {chunk.page}",
@@ -42,6 +43,10 @@ def build_grounded_prompt(
             f"Question: {question}",
             "Retrieved evidence:",
             context,
-            "Answer with citations using chunk IDs.",
+            (
+                "Answer in natural language using only the evidence above. "
+                "Place inline citation markers such as [E1] directly after each "
+                "supported claim. Do not use a separate References section."
+            ),
         ]
     )

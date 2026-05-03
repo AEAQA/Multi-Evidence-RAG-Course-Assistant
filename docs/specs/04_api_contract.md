@@ -397,3 +397,54 @@ Test isolation:
 The app factory accepts path overrides for registry, upload, image, chunk cache,
 evaluation query and report directories so tests can use temporary directories
 instead of real local user uploads.
+
+## Stage 2 grounded answer contract
+
+Stage 2 makes inline citations part of the answer-generation contract instead
+of a UI-side patch.
+
+Grounded answer requirements:
+
+* `answer.text` must be natural-language prose, not raw chunk concatenation;
+* supported claims must include inline markers such as `[E1]` directly after
+  the sentence or clause they support;
+* grounded answers must not use a trailing `References: [E1]` block as the main
+  citation pattern;
+* every marker in `answer.text` must resolve through `citations[].evidence_id`
+  and `final_evidence[].evidence_id`;
+* if evidence is insufficient, `answer.grounding_status` is
+  `insufficient_evidence` and citation markers are not required.
+
+Prompt requirements:
+
+* retrieved context remains untrusted reference material;
+* evidence blocks are labeled as `[E1]`, `[E2]`, `[E3]`;
+* the prompt tells the model to answer only from evidence and place inline
+  citation markers after supported claims;
+* API clients must preserve mock fallback behavior on missing keys, network
+  failure, response parsing failure, or provider errors.
+
+Example Stage 2 response:
+
+```json
+{
+  "answer": {
+    "text": "The materials indicate that reranking selects the final evidence chunks [E1]. They also state that hybrid retrieval combines lexical and semantic rankings [E2].",
+    "style": "detailed",
+    "grounding_status": "grounded"
+  },
+  "citations": [
+    {
+      "evidence_id": "E1",
+      "chunk_id": "doc001_page001_text_0001",
+      "doc_id": "doc001",
+      "source_file": "lecture.txt",
+      "page": 1
+    }
+  ],
+  "final_evidence": [],
+  "retrieval_trace": [],
+  "timing": {},
+  "scope": {}
+}
+```

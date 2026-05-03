@@ -361,3 +361,26 @@ Required frontend data sources:
 
 The Streamlit implementation remains the backup UI and should not be removed by
 the React migration.
+
+## Stage 2 Inline Citation Contract
+
+React should treat citation markers in `answer.text` as first-class inline
+anchors.
+
+Rendering rules:
+
+* parse markers that match `[E1]`, `[E2]`, `[E3]`, and so on;
+* render each marker as an inline anchor inside the answer text;
+* use `citations[].evidence_id` and `final_evidence[].evidence_id` to resolve
+  the target evidence card;
+* clicking the anchor should scroll to and highlight the corresponding evidence
+  card in the right Evidence Intelligence panel;
+* if a marker cannot be resolved, keep the marker visible as plain text and do
+  not hide the answer.
+
+Backend expectation:
+
+* grounded answer text should already include citation markers directly after
+  supported claims;
+* React should not need to synthesize a separate `References` block for normal
+  grounded answers.

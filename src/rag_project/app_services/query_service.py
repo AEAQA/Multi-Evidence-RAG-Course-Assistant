@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from time import perf_counter
 
 from pydantic import BaseModel, Field
@@ -235,8 +236,48 @@ def _attach_evidence_ids(
     markers = [f"[{item.evidence_id}]" for item in evidence]
     answer_text = answer.answer
     if not answer.insufficient_evidence and not any(marker in answer_text for marker in markers):
-        answer_text = f"{answer_text}\n\nReferences: {' '.join(markers)}"
+        answer_text = _add_inline_markers(answer_text, markers)
     return answer.model_copy(update={"answer": answer_text, "citations": citations})
+
+
+def _add_inline_markers(answer_text: str, markers: list[str]) -> str:
+    text = _strip_references_block(answer_text).strip()
+    if not text or not markers:
+        return text
+    sentences = _split_sentences(text)
+    if not sentences:
+        return f"{text.rstrip('.!?')} {markers[0]}."
+    patched: list[str] = []
+    for index, sentence in enumerate(sentences):
+        marker = markers[min(index, len(markers) - 1)]
+        patched.append(_sentence_with_marker(sentence, marker))
+        if index + 1 >= len(markers):
+            patched.extend(sentences[index + 1 :])
+            break
+    return " ".join(patched)
+
+
+def _strip_references_block(answer_text: str) -> str:
+    return re.sub(
+        r"\n+\s*References:\s*(?:\[E\d+\]\s*)+$",
+        "",
+        str(answer_text or "").strip(),
+        flags=re.IGNORECASE,
+    )
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.findall(r"[^.!?]+[.!?]?", text)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def _sentence_with_marker(sentence: str, marker: str) -> str:
+    if marker in sentence:
+        return sentence
+    stripped = sentence.strip()
+    punctuation = "." if not stripped[-1:] or stripped[-1] not in ".!?" else stripped[-1]
+    body = stripped.rstrip(".!?").strip()
+    return f"{body} {marker}{punctuation}"
 
 
 def _build_retrieval_trace(

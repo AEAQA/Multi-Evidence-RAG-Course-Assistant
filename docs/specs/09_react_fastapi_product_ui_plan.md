@@ -105,6 +105,20 @@ Rules:
 * prompt injection inside documents must not be followed;
 * mock LLM remains deterministic for tests and no-key fallback.
 
+Implementation status:
+
+* prompt evidence blocks are labeled as `[E1]`, `[E2]`, `[E3]`;
+* prompt instructions require natural-language answers with inline citation
+  markers directly after supported claims;
+* mock local LLM output is deterministic natural language with inline markers,
+  not raw chunk concatenation;
+* QueryService no longer appends a trailing `References:` block for grounded
+  answers;
+* `/api/query` answer text now contains inline markers that map to
+  `citations[].evidence_id` and `final_evidence[].evidence_id`;
+* SiliconFlow prompt instructions request the same inline citation pattern and
+  still fall back to the mock client on API failure.
+
 Recommended query response shape:
 
 ```json

@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import uuid
 
 import pytest
@@ -97,6 +98,12 @@ def test_upload_query_and_delete_uploaded_text_document() -> None:
     assert query_payload["final_evidence"]
     assert query_payload["final_evidence"][0]["evidence_id"] == "E1"
     assert "[E1]" in query_payload["answer"]["text"]
+    assert "References:" not in query_payload["answer"]["text"]
+    markers = set(re.findall(r"\[(E\d+)\]", query_payload["answer"]["text"]))
+    citation_ids = {item["evidence_id"] for item in query_payload["citations"]}
+    evidence_ids = {item["evidence_id"] for item in query_payload["final_evidence"]}
+    assert markers <= citation_ids
+    assert markers <= evidence_ids
     assert [stage["stage"] for stage in query_payload["retrieval_trace"]] == [
         "BM25",
         "Dense",

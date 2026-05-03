@@ -157,3 +157,14 @@ Reason:
 adapter, local server startup, multipart document upload and TestClient-based
 tests. They do not require API keys, network access during normal execution,
 GPU, model downloads or changes to the offline RAG core.
+
+## Decision 021: Make inline citation markers part of answer generation
+
+Reason:
+
+The React product UI needs stable citation-to-evidence linking without
+guessing where support belongs in the answer. Stage 2 therefore labels evidence
+as `[E1]`, `[E2]`, and `[E3]` in the grounded prompt and requires answer text to
+place those markers directly after supported claims. The mock LLM follows the
+same contract deterministically, so local/offline tests validate the product
+behavior without API keys or network access.

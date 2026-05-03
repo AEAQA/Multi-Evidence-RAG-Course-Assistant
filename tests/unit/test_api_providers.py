@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import uuid
 
 from rag_project.config import AppConfig, load_config
 from rag_project.generation.llm_client import MockLLMClient
@@ -25,11 +26,16 @@ def _chunk(chunk_id: str = "c1", text: str = "overfitting validation") -> Chunk:
     )
 
 
+def _test_root() -> Path:
+    root = Path("pytest_runs") / f"api_providers_{uuid.uuid4().hex}"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def test_load_config_reads_dotenv_and_redacts_key_status(
-    tmp_path: Path,
     monkeypatch,
 ) -> None:
-    env_path = tmp_path / ".env"
+    env_path = _test_root() / ".env"
     env_path.write_text(
         "\n".join(
             [
@@ -115,7 +121,8 @@ def test_siliconflow_llm_failure_falls_back_to_mock() -> None:
 
     response = client.generate_answer("What is overfitting?", [_chunk()])
 
-    assert response.answer.startswith("Based on the retrieved evidence")
+    assert response.answer.startswith("The materials indicate")
+    assert "[E1]" in response.answer
     assert "fallback" in response.retrieval_explanation.lower()
 
 
@@ -160,8 +167,8 @@ def test_siliconflow_reranker_failure_falls_back_to_mock() -> None:
     assert results[0].chunk_id == "c2"
 
 
-def test_siliconflow_vision_failure_falls_back_to_mock(tmp_path: Path) -> None:
-    image_path = tmp_path / "image.png"
+def test_siliconflow_vision_failure_falls_back_to_mock() -> None:
+    image_path = _test_root() / "image.png"
     image_path.write_bytes(b"not-a-real-image-but-no-network")
 
     def failing_post(url, *, headers, json, timeout):

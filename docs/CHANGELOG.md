@@ -53,6 +53,8 @@
 * Unit tests for evidence markers, evidence IDs, retrieval trace output and Streamlit score helper behavior.
 * Stage 1 FastAPI adapter under `src/rag_project/api/` for health, status, documents, upload, delete, query and evaluation endpoints.
 * FastAPI `TestClient` coverage for endpoint shape, upload/query/delete flow, unsupported upload handling and offline evaluation.
+* Stage 2 prompt-driven grounded answer contract with inline evidence markers in generated answer text.
+* Tests for natural-language mock answers, marker-to-citation mapping and FastAPI inline citation response shape.
 
 ### Changed
 
@@ -87,6 +89,9 @@
 * The single-page Streamlit workbench now hides the legacy sidebar and uses a wider main container.
 * `environment.yml` now includes FastAPI runtime/test dependencies: `fastapi`, `uvicorn`, `python-multipart` and `httpx`.
 * `scripts/dev.py` now includes `python scripts/dev.py api` for the FastAPI adapter.
+* Grounded prompts now label evidence as `[E1]`, `[E2]`, and `[E3]` and instruct providers to use inline citation markers.
+* Mock LLM fallback now produces deterministic natural-language answers instead of concatenating raw chunk text behind `Based on the retrieved evidence`.
+* QueryService now avoids trailing `References:` blocks for grounded answers and preserves inline marker-to-evidence mapping.
 
 ### Known cleanup notes
 

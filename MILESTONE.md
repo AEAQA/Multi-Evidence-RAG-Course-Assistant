@@ -328,9 +328,25 @@ Delivered:
 
 ### Stage 2: Prompt-Driven Grounded Answer Contract
 
-Status: planned.
+Status: complete.
 
 Goal: replace chunk-concatenation style responses with prompt-driven natural language answers and inline citation markers.
+
+Delivered:
+
+* Grounded prompt evidence blocks are labeled as `[E1]`, `[E2]`, `[E3]`.
+* Prompt instructions require natural-language answers and inline citation
+  markers after supported claims.
+* Mock LLM fallback now returns deterministic natural-language answers with
+  inline markers.
+* QueryService maps answer markers to stable `citations` and `final_evidence`
+  IDs without appending a trailing `References:` block.
+* FastAPI `/api/query` now returns Stage 2-compatible answer text for React
+  citation anchors.
+* Verified Stage 2 behavior with focused generation, query service, FastAPI,
+  provider fallback and mock-client tests.
+* Verified full local/offline suite with `python scripts/dev.py test` passing
+  91 tests and `python scripts/dev.py eval` completing reports.
 
 ### Stage 3: React Three-Panel Product UI
 

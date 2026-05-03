@@ -94,7 +94,7 @@ M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 * Streamlit dataframe rows now serialize image/table `bbox` metadata as strings to avoid PyArrow mixed list/scalar conversion errors.
 * The legacy Streamlit sidebar is hidden so the single-page workbench uses the full browser width.
 * Method comparison output is verified to include BM25, Dense, Fusion and Reranked results for the sample query path.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 90 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 91 tests.
 * Stage 1 FastAPI adapter exists under `src/rag_project/api/`.
 * FastAPI exposes health, status, documents, upload, delete, query and evaluation endpoints for the React product UI.
 * `POST /api/query` returns product-ready answer text, citations, final evidence, retrieval trace, method result groups, timing, scope and diagnostics.
@@ -102,6 +102,14 @@ M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 * `python scripts/dev.py api` starts the FastAPI adapter with uvicorn.
 * `python scripts/dev.py test -- tests/unit/test_fastapi_api.py -vv` passes 5 FastAPI endpoint tests.
 * `python scripts/dev.py eval` completes and writes retrieval metrics, latency metrics and error cases reports after Stage 1.
+* Stage 2 prompt-driven grounded answer contract is implemented.
+* Grounded prompts label evidence blocks as `[E1]`, `[E2]`, `[E3]` and request inline citation markers after supported claims.
+* Mock LLM fallback now returns deterministic natural-language answers with inline citation markers instead of raw chunk concatenation.
+* QueryService no longer appends a trailing `References:` block for grounded answers.
+* `/api/query` inline markers resolve through both `citations` and `final_evidence`.
+* `python scripts/dev.py test -- tests/unit/test_generation.py tests/unit/test_query_service.py tests/unit/test_fastapi_api.py tests/unit/test_api_providers.py tests/unit/test_mock_clients.py -vv` passes 30 Stage 2-related tests.
+* `python scripts/dev.py test` passes 91 tests after Stage 2.
+* `python scripts/dev.py eval` completes after Stage 2 and rewrites retrieval metrics, latency metrics and error cases reports.
 
 ## What is missing
 
@@ -141,4 +149,4 @@ python scripts/dev.py api-smoke
 
 ## Next step
 
-Continue React/FastAPI product UI migration with Stage 2/3: prompt-driven answer contract refinement and the React three-panel workbench.
+Continue React/FastAPI product UI migration with Stage 3: the React three-panel workbench and citation-to-evidence interaction.

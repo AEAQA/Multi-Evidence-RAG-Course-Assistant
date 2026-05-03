@@ -5,6 +5,7 @@ from rag_project.app_services.query_service import (
 )
 from rag_project.config import AppConfig
 from rag_project.schemas import Chunk, ChunkMetadata
+import re
 
 
 def test_query_service_returns_workbench_state() -> None:
@@ -42,6 +43,12 @@ def test_query_service_returns_workbench_state() -> None:
     assert [item.evidence_id for item in state.final_evidence[:3]] == ["E1", "E2", "E3"]
     assert all(citation.evidence_id for citation in state.answer.citations)
     assert "[E1]" in state.answer.answer
+    assert "References:" not in state.answer.answer
+    markers = set(re.findall(r"\[(E\d+)\]", state.answer.answer))
+    citation_ids = {citation.evidence_id for citation in state.answer.citations}
+    evidence_ids = {item.evidence_id for item in state.final_evidence}
+    assert markers <= citation_ids
+    assert markers <= evidence_ids
     assert [stage.stage for stage in state.retrieval_trace] == [
         "BM25",
         "Dense",
@@ -133,6 +140,8 @@ def test_query_service_exposes_scored_final_evidence_results() -> None:
     assert state.final_evidence[0].evidence_id == "E1"
     assert state.final_evidence[0].chunk_id == chunk.chunk_id
     assert state.answer.citations[0].evidence_id == "E1"
+    assert "[E1]" in state.answer.answer
+    assert "References:" not in state.answer.answer
 
 
 def test_query_service_accepts_prebuilt_retrieval_pipeline() -> None:

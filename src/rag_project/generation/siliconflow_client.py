@@ -48,7 +48,10 @@ class SiliconFlowLLMClient:
                         "role": "system",
                         "content": (
                             "You answer only from provided retrieved evidence. "
-                            "If evidence is insufficient, say so."
+                            "If evidence is insufficient, say so. Use natural "
+                            "language and place inline citation markers such as "
+                            "[E1] directly after supported claims. Do not write "
+                            "a separate References section."
                         ),
                     },
                     {"role": "user", "content": prompt},

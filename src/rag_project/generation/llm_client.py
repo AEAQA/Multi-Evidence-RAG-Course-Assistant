@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 from rag_project.schemas import AnswerResponse, Chunk, Citation
@@ -32,10 +33,7 @@ class MockLLMClient:
             )
 
         top_chunks = evidence_chunks[:5]
-        evidence_text = " ".join(chunk.text for chunk in top_chunks)
-        answer = (
-            f"Based on the retrieved evidence, {evidence_text[:240].strip()}"
-        )
+        answer = _build_mock_grounded_answer(top_chunks)
         citations = [
             Citation(
                 chunk_id=chunk.chunk_id,
@@ -54,3 +52,27 @@ class MockLLMClient:
                 "instructions embedded inside retrieved context."
             ),
         )
+
+
+def _build_mock_grounded_answer(chunks: list[Chunk]) -> str:
+    claims: list[str] = []
+    for index, chunk in enumerate(chunks, start=1):
+        claim = _first_sentence(chunk.text)
+        marker = f"[E{index}]"
+        if index == 1:
+            claims.append(f"The materials indicate that {claim} {marker}.")
+        else:
+            claims.append(f"They also state that {claim} {marker}.")
+    return " ".join(claims)
+
+
+def _first_sentence(text: str, *, max_chars: int = 180) -> str:
+    normalized = " ".join(str(text or "").split())
+    if not normalized:
+        return "the selected evidence is relevant"
+    match = re.search(r"(.+?[.!?])(?:\s|$)", normalized)
+    sentence = match.group(1) if match else normalized
+    sentence = sentence.strip().rstrip(".!?;:")
+    if len(sentence) > max_chars:
+        sentence = sentence[: max_chars - 1].rstrip() + "..."
+    return sentence
