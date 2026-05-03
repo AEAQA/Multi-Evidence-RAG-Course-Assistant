@@ -285,3 +285,67 @@ python scripts/dev.py eval
 - 用户先安装 Miniconda 环境，我后续只基于修复后的 `environment.yml` 开发。
 - MVP 优先完成 text-only RAG baseline，再做 image-aware ingestion。
 - 如果需要回滚记录，Milestone 0 中应先初始化 git 仓库并创建初始 checkpoint。
+
+---
+
+## React/FastAPI Product UI Staged Migration
+
+This section tracks the `react-fastapi-product-ui` branch. It does not replace the original offline-first RAG milestone plan above.
+
+### Stage 0: Documentation And Migration Contract
+
+Status: documented.
+
+Goal: capture the FastAPI + React migration plan without changing core code.
+
+Deliverables:
+
+* `AGENTS.md` migration rules;
+* `docs/specs/09_react_fastapi_product_ui_plan.md`;
+* architecture/API/UI/redesign spec updates;
+* Streamlit backup policy;
+* frontend_reference reading instructions.
+
+### Stage 1: FastAPI Backend Layer
+
+Status: complete.
+
+Goal: expose existing RAG services through JSON-first FastAPI endpoints.
+
+Delivered:
+
+* `src/rag_project/api/main.py` exposes health, status, documents, upload,
+  delete, query and evaluation endpoints.
+* The API wraps existing corpus, query, provider status and evaluation services.
+* `POST /api/query` returns answer text, citations, final evidence, retrieval
+  trace, method result groups, timing, scope and diagnostics.
+* `tests/unit/test_fastapi_api.py` covers the Stage 1 endpoint contract using
+  temporary local storage paths.
+* `python scripts/dev.py api` starts the FastAPI adapter.
+* `environment.yml` includes FastAPI runtime/test dependencies.
+* Verified with `python scripts/dev.py test` passing 90 tests and
+  `python scripts/dev.py eval` completing offline reports.
+
+### Stage 2: Prompt-Driven Grounded Answer Contract
+
+Status: planned.
+
+Goal: replace chunk-concatenation style responses with prompt-driven natural language answers and inline citation markers.
+
+### Stage 3: React Three-Panel Product UI
+
+Status: planned.
+
+Goal: implement left Knowledge Base, center Chat, and right Evidence Intelligence panels.
+
+### Stage 4: Evaluation Visualization
+
+Status: planned.
+
+Goal: integrate retrieval and evaluation metrics into the right-side Evidence Intelligence panel using visual summaries.
+
+### Stage 5: Demo Packaging
+
+Status: planned.
+
+Goal: document startup, demo flow, fallback behavior, API smoke checks, and final presentation steps.

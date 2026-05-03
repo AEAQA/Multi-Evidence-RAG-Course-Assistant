@@ -1,0 +1,150 @@
+from pathlib import Path
+import uuid
+
+import pytest
+
+fastapi = pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
+pytest.importorskip("multipart")
+
+from fastapi.testclient import TestClient
+
+from rag_project.api.main import ApiPaths, create_app
+from rag_project.config import AppConfig
+
+
+def _test_root() -> Path:
+    root = Path("pytest_runs") / f"fastapi_api_{uuid.uuid4().hex}"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _client(root: Path) -> TestClient:
+    app = create_app(
+        config=AppConfig(),
+        paths=ApiPaths(
+            registry_path=root / "corpus_registry.json",
+            upload_dir=root / "uploads",
+            image_output_dir=root / "images",
+            chunk_cache_dir=root / "chunks",
+            eval_query_path=Path("data/eval/queries.jsonl"),
+            report_dir=root / "reports",
+        ),
+    )
+    return TestClient(app)
+
+
+def test_health_and_status_are_secret_free() -> None:
+    client = _client(_test_root())
+
+    health = client.get("/api/health").json()
+    status = client.get("/api/status").json()
+
+    assert health["status"] == "ok"
+    assert health["document_count"] == 0
+    assert status["runtime"]["SILICONFLOW_API_KEY"] == "missing"
+    assert "secret" not in str(status).lower()
+    assert status["api"]["streaming"] is False
+
+
+def test_documents_empty_registry() -> None:
+    client = _client(_test_root())
+
+    response = client.get("/api/documents")
+
+    assert response.status_code == 200
+    assert response.json() == {"documents": [], "total_chunks": 0}
+
+
+def test_upload_query_and_delete_uploaded_text_document() -> None:
+    client = _client(_test_root())
+    upload_response = client.post(
+        "/api/documents/upload",
+        files={
+            "files": (
+                "notes.txt",
+                b"Alpha calibration uses held-out validation data. Reranking selects final evidence.",
+                "text/plain",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 200
+    payload = upload_response.json()
+    assert payload["failed"] == []
+    assert len(payload["uploaded"]) == 1
+    record = payload["uploaded"][0]
+    assert record["filename"] == "notes.txt"
+    assert record["chunk_count"] == 1
+    assert Path(record["chunk_cache_path"]).exists()
+
+    query_response = client.post(
+        "/api/query",
+        json={
+            "query": "What does alpha calibration use?",
+            "top_k": 3,
+            "scope": {
+                "mode": "uploaded",
+                "selected_doc_ids": [record["doc_id"]],
+            },
+        },
+    )
+    assert query_response.status_code == 200
+    query_payload = query_response.json()
+    assert query_payload["answer"]["text"]
+    assert query_payload["answer"]["grounding_status"] == "grounded"
+    assert query_payload["citations"]
+    assert query_payload["final_evidence"]
+    assert query_payload["final_evidence"][0]["evidence_id"] == "E1"
+    assert "[E1]" in query_payload["answer"]["text"]
+    assert [stage["stage"] for stage in query_payload["retrieval_trace"]] == [
+        "BM25",
+        "Dense",
+        "Fusion",
+        "Reranker",
+        "Final Evidence",
+    ]
+    assert query_payload["scope"]["doc_count"] == 1
+    assert set(query_payload["retrieval"]) == {"bm25", "dense", "fusion", "reranked"}
+    assert "total" in query_payload["timing"]
+
+    delete_response = client.delete(f"/api/documents/{record['doc_id']}")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["documents"] == []
+
+
+def test_unsupported_upload_is_reported_without_crashing() -> None:
+    client = _client(_test_root())
+
+    response = client.post(
+        "/api/documents/upload",
+        files={"files": ("table.csv", b"a,b\n1,2", "text/csv")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["uploaded"] == []
+    assert payload["failed"][0]["filename"] == "table.csv"
+
+
+def test_evaluation_summary_and_run_are_offline() -> None:
+    client = _client(_test_root())
+
+    empty_summary = client.get("/api/evaluation/summary").json()
+    assert empty_summary["available"] is False
+
+    run_response = client.post(
+        "/api/evaluation/run",
+        json={"top_k": 5, "write_reports": True},
+    )
+    assert run_response.status_code == 200
+    payload = run_response.json()
+    assert {"bm25", "dense", "fusion", "reranked"} <= set(payload["summary_by_method"])
+    assert payload["metric_rows"]
+    assert payload["latency_rows"]
+    assert payload["written_paths"]
+
+    summary = client.get("/api/evaluation/summary").json()
+    assert summary["available"] is True
+    assert "bm25" in summary["summary_by_method"]
+    assert "bm25" in summary["latency_by_method"]

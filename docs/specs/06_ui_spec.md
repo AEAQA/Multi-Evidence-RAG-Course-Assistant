@@ -302,3 +302,62 @@ Right panel behavior:
 The separate Evaluation Dashboard implementation may remain as a legacy helper,
 but the primary user experience should route evaluation and debug details
 through the right-side Evidence Intelligence panel.
+
+## React/FastAPI Product UI Target
+
+The product UI target is a React three-panel RAG workbench inspired by `frontend_reference/CourseMate.jsx`. The reference is visual and interaction guidance only; do not copy it directly.
+
+Required layout:
+
+```text
+Left: Knowledge Base
+Center: Chat
+Right: Evidence Intelligence
+```
+
+Left panel controls the corpus scope:
+
+* upload PDF/TXT/MD files;
+* list uploaded/indexed documents;
+* allow all-documents or selected-documents retrieval;
+* show chunk count, document type summary, status, and RAG enabled state.
+
+Center panel is chat-focused:
+
+* full-height bounded layout;
+* scrollable messages;
+* fixed input area;
+* natural language grounded answers;
+* inline citations directly after supported claims, for example `[E1]`.
+
+Right panel is the data science explanation layer:
+
+* evidence cards labeled `E1`, `E2`, `E3`;
+* source file, page, chunk id, chunk type, method, score, and preview;
+* BM25 -> Dense -> Fusion -> Reranker -> Final Evidence flow;
+* BM25, Dense, Fusion, and Reranker method comparison;
+* score bars, latency badges, method contribution summary;
+* Recall@k, MRR, NDCG, latency, and error cases in collapsible diagnostics.
+
+Citation interaction:
+
+* `[E1]` is an inline anchor, not a separate button;
+* clicking `[E1]` scrolls to and highlights Evidence E1 in the right panel;
+* the answer remains readable even if JavaScript scrolling fails.
+
+## Stage 1 Product API Availability
+
+The React product UI should consume the Stage 1 FastAPI adapter instead of
+calling Streamlit or Python app services directly.
+
+Required frontend data sources:
+
+* left Knowledge Base panel calls `GET /api/documents`,
+  `POST /api/documents/upload` and `DELETE /api/documents/{doc_id}`;
+* center Chat calls `POST /api/query`;
+* right Evidence Intelligence renders `final_evidence`, `retrieval_trace`,
+  `retrieval`, `timing`, `scope`, `diagnostics` and evaluation endpoints;
+* provider/status badges call `GET /api/status`.
+
+The Streamlit implementation remains the backup UI and should not be removed by
+the React migration.

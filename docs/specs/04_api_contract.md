@@ -276,3 +276,124 @@ inside the single-page RAG workbench.
 Streamlit citation buttons store `active_evidence_id` in session state. The
 right-side Evidence Intelligence panel uses that value to move, expand and
 highlight the matching evidence card.
+
+## React/FastAPI Product API Target
+
+A future FastAPI layer should expose the following JSON-first endpoints for the React product UI:
+
+```text
+GET  /api/health
+GET  /api/status
+GET  /api/documents
+POST /api/documents/upload
+DELETE /api/documents/{doc_id}
+POST /api/query
+GET  /api/evaluation/summary
+POST /api/evaluation/run
+```
+
+The first implementation should not require streaming. Streaming can be added later after the JSON contract is stable.
+
+### Query response contract
+
+`POST /api/query` should return prompt-driven grounded answer output rather than raw chunk concatenation:
+
+```json
+{
+  "answer": {
+    "text": "Hybrid retrieval improves recall by combining lexical and dense signals [E1].",
+    "style": "detailed",
+    "grounding_status": "grounded"
+  },
+  "citations": [
+    {
+      "evidence_id": "E1",
+      "chunk_id": "chunk-001",
+      "doc_id": "doc-lecture-01",
+      "source_file": "lecture01.pdf",
+      "page": 3
+    }
+  ],
+  "final_evidence": [],
+  "retrieval_trace": {},
+  "timing": {},
+  "scope": {}
+}
+```
+
+Inline citations such as `[E1]` must map to `citations` and `final_evidence`. React renders them as inline anchors that highlight the corresponding evidence card.
+
+All real providers remain optional. Missing keys, API failures, parsing failures, and network failures must fall back to mock clients.
+
+## Stage 1 FastAPI adapter contract
+
+The Stage 1 FastAPI adapter is implemented under:
+
+```text
+src/rag_project/api/main.py
+```
+
+It is a thin HTTP interface over existing services. It must not rewrite
+ingestion, retrieval, generation, provider fallback, or evaluation logic.
+
+Run command:
+
+```bash
+python scripts/dev.py api
+```
+
+Implemented endpoints:
+
+```text
+GET  /api/health
+GET  /api/status
+GET  /api/documents
+POST /api/documents/upload
+DELETE /api/documents/{doc_id}
+POST /api/query
+GET  /api/evaluation/summary
+POST /api/evaluation/run
+```
+
+`POST /api/query` request:
+
+```json
+{
+  "query": "What does reranking do?",
+  "top_k": 5,
+  "scope": {
+    "mode": "combined",
+    "selected_doc_ids": []
+  }
+}
+```
+
+`scope.mode` supports:
+
+```text
+sample
+uploaded
+combined
+```
+
+`POST /api/query` response includes:
+
+* `answer.text`, `answer.style`, `answer.grounding_status`;
+* `citations` with `evidence_id`, `chunk_id`, `doc_id`, `source_file`, `page`;
+* `final_evidence` rows labeled `E1`, `E2`, `E3`;
+* `retrieval_trace` stages for BM25, Dense, Fusion, Reranker and Final Evidence;
+* `retrieval.bm25`, `retrieval.dense`, `retrieval.fusion`, `retrieval.reranked`;
+* `timing`, `scope`, `diagnostics`, `provider_status`, `warnings`, `suggestions`.
+
+Upload behavior:
+
+* accepted suffixes are `.pdf`, `.txt`, `.md`, and `.markdown`;
+* unsupported or failed files are returned in `failed`;
+* one bad file must not crash the whole upload request;
+* uploaded documents and chunk caches remain under ignored local storage.
+
+Test isolation:
+
+The app factory accepts path overrides for registry, upload, image, chunk cache,
+evaluation query and report directories so tests can use temporary directories
+instead of real local user uploads.

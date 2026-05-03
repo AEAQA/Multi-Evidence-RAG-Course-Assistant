@@ -94,7 +94,14 @@ M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 * Streamlit dataframe rows now serialize image/table `bbox` metadata as strings to avoid PyArrow mixed list/scalar conversion errors.
 * The legacy Streamlit sidebar is hidden so the single-page workbench uses the full browser width.
 * Method comparison output is verified to include BM25, Dense, Fusion and Reranked results for the sample query path.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 85 tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 90 tests.
+* Stage 1 FastAPI adapter exists under `src/rag_project/api/`.
+* FastAPI exposes health, status, documents, upload, delete, query and evaluation endpoints for the React product UI.
+* `POST /api/query` returns product-ready answer text, citations, final evidence, retrieval trace, method result groups, timing, scope and diagnostics.
+* The FastAPI app factory accepts temporary registry/upload/cache/report paths for isolated tests.
+* `python scripts/dev.py api` starts the FastAPI adapter with uvicorn.
+* `python scripts/dev.py test -- tests/unit/test_fastapi_api.py -vv` passes 5 FastAPI endpoint tests.
+* `python scripts/dev.py eval` completes and writes retrieval metrics, latency metrics and error cases reports after Stage 1.
 
 ## What is missing
 
@@ -114,6 +121,7 @@ python -m pytest
 python -m streamlit run app/streamlit_app.py
 python scripts/dev.py test
 python scripts/dev.py run
+python scripts/dev.py api
 python scripts/dev.py eval
 python scripts/dev.py api-smoke
 ```
@@ -129,7 +137,8 @@ python scripts/dev.py api-smoke
 * Uploaded files, processed image assets, registry metadata, and chunk caches live under `data/processed/`, which is ignored by git.
 * M7-patch2 keeps FastAPI/React deferred; Streamlit remains the MVP UI.
 * `python -m pytest` may hit Windows temp-directory `PermissionError`; use a workspace-local `--basetemp` path if needed.
+* Stage 1 FastAPI tests require `fastapi`, `uvicorn`, `python-multipart` and `httpx`; keep the Conda environment synchronized with `environment.yml`.
 
 ## Next step
 
-Start Milestone 8: final report and demo packaging.
+Continue React/FastAPI product UI migration with Stage 2/3: prompt-driven answer contract refinement and the React three-panel workbench.

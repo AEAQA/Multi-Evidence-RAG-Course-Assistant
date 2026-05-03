@@ -137,3 +137,23 @@ shows citation buttons below the answer, and stores the selected ID in
 `st.session_state`. The Evidence Intelligence panel then moves, expands and
 highlights the matching evidence card while keeping the MVP frontend simple,
 testable and framework-stable.
+
+## Decision 019: Add FastAPI as a thin product interface layer
+
+Reason:
+
+The React product UI needs stable JSON endpoints for upload, scope selection,
+querying, evidence intelligence and evaluation visualization. The Stage 1
+FastAPI adapter wraps existing app services and evaluation modules instead of
+rewriting RAG algorithms or introducing Chroma, LangChain, Docker, ASR/TTS or a
+new database. This keeps Streamlit as a backup while creating a product-ready
+contract for React.
+
+## Decision 020: Add minimal FastAPI runtime dependencies
+
+Reason:
+
+`fastapi`, `uvicorn`, `python-multipart` and `httpx` are required for the HTTP
+adapter, local server startup, multipart document upload and TestClient-based
+tests. They do not require API keys, network access during normal execution,
+GPU, model downloads or changes to the offline RAG core.

@@ -5,6 +5,7 @@ Usage:
 python scripts/dev.py info
 python scripts/dev.py test
 python scripts/dev.py run
+python scripts/dev.py api
 python scripts/dev.py eval
 python scripts/dev.py api-smoke
 python scripts/dev.py clean
@@ -66,12 +67,25 @@ def cmd_info(_: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_test(_: argparse.Namespace) -> int:
+def cmd_test(args: argparse.Namespace) -> int:
     """Run test suite."""
     basetemp = ROOT / "pytest_runs" / uuid.uuid4().hex
+    cache_dir = ROOT / "pytest_runs" / f"cache_{uuid.uuid4().hex}"
     basetemp.parent.mkdir(exist_ok=True)
+    pytest_args = list(args.pytest_args or [])
+    if pytest_args and pytest_args[0] == "--":
+        pytest_args = pytest_args[1:]
     return run_command(
-        [sys.executable, "-m", "pytest", "--basetemp", str(basetemp)]
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--basetemp",
+            str(basetemp),
+            "-o",
+            f"cache_dir={cache_dir}",
+            *pytest_args,
+        ]
     )
 
 
@@ -85,6 +99,23 @@ def cmd_run(_: argparse.Namespace) -> int:
 
     return run_command(
         [sys.executable, "-m", "streamlit", "run", str(app_path)]
+    )
+
+
+def cmd_api(_: argparse.Namespace) -> int:
+    """Run FastAPI adapter for the React product UI."""
+    return run_command(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "rag_project.api.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8000",
+            "--reload",
+        ]
     )
 
 
@@ -147,10 +178,18 @@ def build_parser() -> argparse.ArgumentParser:
     info_parser.set_defaults(func=cmd_info)
 
     test_parser = subparsers.add_parser("test", help="Run tests.")
+    test_parser.add_argument(
+        "pytest_args",
+        nargs=argparse.REMAINDER,
+        help="Optional arguments passed through to pytest after --.",
+    )
     test_parser.set_defaults(func=cmd_test)
 
     run_parser = subparsers.add_parser("run", help="Run Streamlit app.")
     run_parser.set_defaults(func=cmd_run)
+
+    api_parser = subparsers.add_parser("api", help="Run FastAPI adapter.")
+    api_parser.set_defaults(func=cmd_api)
 
     eval_parser = subparsers.add_parser("eval", help="Run evaluation.")
     eval_parser.set_defaults(func=cmd_eval)

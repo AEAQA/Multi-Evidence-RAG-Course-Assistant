@@ -51,6 +51,8 @@
 * Unit tests for chunk-cache loading, metadata-only registry reads, legacy registry cache upgrade, prebuilt retrieval pipeline usage, and stable corpus signatures.
 * M7-patch5 evidence IDs, final evidence rows, retrieval trace stages and query scope output for citation-aware UI interaction.
 * Unit tests for evidence markers, evidence IDs, retrieval trace output and Streamlit score helper behavior.
+* Stage 1 FastAPI adapter under `src/rag_project/api/` for health, status, documents, upload, delete, query and evaluation endpoints.
+* FastAPI `TestClient` coverage for endpoint shape, upload/query/delete flow, unsupported upload handling and offline evaluation.
 
 ### Changed
 
@@ -83,6 +85,8 @@
 * Center answer panel now includes citation marker controls that highlight matching evidence in the right panel.
 * Evaluation metrics are now integrated into a collapsed right-panel section so DS evidence remains available without dominating the chat experience.
 * The single-page Streamlit workbench now hides the legacy sidebar and uses a wider main container.
+* `environment.yml` now includes FastAPI runtime/test dependencies: `fastapi`, `uvicorn`, `python-multipart` and `httpx`.
+* `scripts/dev.py` now includes `python scripts/dev.py api` for the FastAPI adapter.
 
 ### Known cleanup notes
 

@@ -181,3 +181,20 @@ when the corpus is loaded.
 3. Streamlit dashboard third.
 4. Image-aware ingestion fourth.
 5. API integration fifth.
+
+## React/FastAPI Product UI Migration Target
+
+The `react-fastapi-product-ui` branch adds a product interface layer while keeping the existing Streamlit MVP as backup.
+
+Target architecture:
+
+```text
+React product UI
+-> FastAPI interface layer
+-> existing app services
+-> ingestion / retrieval / generation / evaluation modules
+```
+
+FastAPI must wrap the current `src/rag_project` services instead of rewriting the RAG core. The migration keeps BM25, fake/lightweight dense retrieval, hybrid fusion, reranker comparison, grounded generation, evaluation metrics, provider fallback, and offline-first tests.
+
+The reference project under `frontend_reference/` should be read before implementation. It is a reference for three-panel product interaction and FastAPI organization, not a source to copy directly.

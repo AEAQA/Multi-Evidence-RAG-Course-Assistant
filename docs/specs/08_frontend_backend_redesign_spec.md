@@ -370,3 +370,18 @@ Architecture decision:
 * M7-patch2 intentionally keeps Streamlit as the MVP dashboard and reuses the
   existing app service layer instead of introducing Chroma, Docker, or a local
   database.
+
+## React/FastAPI Migration Status
+
+A future branch-level migration will move the product UI from Streamlit to React + FastAPI while preserving the existing RAG core.
+
+Migration rules:
+
+* Streamlit remains a backup implementation.
+* FastAPI is an interface layer over existing app services.
+* React implements the product-like three-panel workbench.
+* `frontend_reference/` is required reading before implementation, but old code must not be copied directly.
+* Answers should become prompt-driven natural language with inline citations, not retrieval-result concatenation.
+* The right-side Evidence Intelligence panel must continue to expose retrieval method comparison and evaluation signals.
+
+Detailed staged plan: `docs/specs/09_react_fastapi_product_ui_plan.md`.
