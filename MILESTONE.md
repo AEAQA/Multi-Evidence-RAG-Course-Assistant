@@ -350,9 +350,32 @@ Delivered:
 
 ### Stage 3: React Three-Panel Product UI
 
-Status: planned.
+Status: complete.
 
 Goal: implement left Knowledge Base, center Chat, and right Evidence Intelligence panels.
+
+Delivered:
+
+* Added a new Vite + React + TypeScript frontend under `frontend/`.
+* Implemented a full-height three-panel RAG workbench:
+  * left Knowledge Base upload, document list, provider state and retrieval
+    scope controls;
+  * center grounded chat surface with Top-k control and inline citation
+    anchors;
+  * right Evidence Intelligence panel with cited evidence cards, retrieval
+    flow, method comparison tabs and collapsible diagnostics.
+* React consumes the Stage 1/2 FastAPI endpoints through typed API client
+  functions instead of calling Streamlit or Python internals.
+* Inline markers such as `[E1]` are parsed into answer anchors. Clicking an
+  anchor highlights and scrolls to the matching evidence card.
+* Added mocked React tests for shell rendering, document state, upload failure,
+  selected scope query payloads, citation linking, retrieval method rendering
+  and diagnostics.
+* Added `python scripts/dev.py ui` and `python scripts/dev.py ui-test`.
+* Verified frontend behavior with `python scripts/dev.py ui-test` passing
+  6 mocked React tests.
+* Verified full local/offline Python suite with `python scripts/dev.py test`
+  passing 91 tests and `python scripts/dev.py eval` completing reports.
 
 ### Stage 4: Evaluation Visualization
 

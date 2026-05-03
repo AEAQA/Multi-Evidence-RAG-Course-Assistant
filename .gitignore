@@ -37,6 +37,11 @@ reports/figures/
 *.safetensors
 .cache/
 
+# Frontend local artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
 # OS/editor
 .DS_Store
 Thumbs.db

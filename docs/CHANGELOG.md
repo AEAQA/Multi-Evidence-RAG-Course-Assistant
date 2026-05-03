@@ -55,6 +55,12 @@
 * FastAPI `TestClient` coverage for endpoint shape, upload/query/delete flow, unsupported upload handling and offline evaluation.
 * Stage 2 prompt-driven grounded answer contract with inline evidence markers in generated answer text.
 * Tests for natural-language mock answers, marker-to-citation mapping and FastAPI inline citation response shape.
+* Stage 3 Vite + React + TypeScript product UI under `frontend/`.
+* React Knowledge Base, Grounded Study Chat and Evidence Intelligence panels.
+* Typed React API client for status, documents, upload, delete, query and evaluation summary endpoints.
+* Inline citation-anchor rendering and evidence-card highlight behavior for markers such as `[E1]`.
+* Mocked React tests for three-panel rendering, document state, upload failure, scope payloads, citation linking, retrieval method tabs and diagnostics.
+* `python scripts/dev.py ui` and `python scripts/dev.py ui-test` commands.
 
 ### Changed
 
@@ -92,10 +98,15 @@
 * Grounded prompts now label evidence as `[E1]`, `[E2]`, and `[E3]` and instruct providers to use inline citation markers.
 * Mock LLM fallback now produces deterministic natural-language answers instead of concatenating raw chunk text behind `Based on the retrieved evidence`.
 * QueryService now avoids trailing `References:` blocks for grounded answers and preserves inline marker-to-evidence mapping.
+* `.gitignore` now ignores local frontend dependency/build/test artifacts.
+* `scripts/dev.py` resolves `npm.cmd` on Windows and adds the common Node
+  install directory to child-process PATH for frontend commands.
 
 ### Known cleanup notes
 
 * Some pytest temp directories from earlier Windows runs may remain if the OS reports `PermissionError`; they are ignored by git.
+* On Windows PowerShell, use `npm.cmd` or `scripts/dev.py` if `npm.ps1` is
+  blocked by execution policy.
 
 ### Fixed
 

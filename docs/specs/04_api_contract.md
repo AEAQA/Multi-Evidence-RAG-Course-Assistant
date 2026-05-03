@@ -448,3 +448,28 @@ Example Stage 2 response:
   "scope": {}
 }
 ```
+
+## Stage 3 React client consumption
+
+Stage 3 does not change the FastAPI wire contract. The React client consumes
+the existing JSON endpoints:
+
+```text
+GET  /api/status
+GET  /api/documents
+POST /api/documents/upload
+DELETE /api/documents/{doc_id}
+POST /api/query
+GET  /api/evaluation/summary
+```
+
+Frontend assumptions:
+
+* `documents[].doc_id`, `filename`, `chunk_count` and `type_counts` are enough
+  to render the Knowledge Base panel;
+* `POST /api/query` must keep returning `answer.text`, `citations`,
+  `final_evidence`, `retrieval_trace`, `retrieval`, `timing`, `scope` and
+  diagnostics for Evidence Intelligence;
+* inline markers in `answer.text` are resolved through
+  `citations[].evidence_id` and `final_evidence[].evidence_id`;
+* if a marker cannot be resolved, React leaves the marker visible as plain text.

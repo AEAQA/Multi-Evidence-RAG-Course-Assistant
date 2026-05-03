@@ -168,3 +168,14 @@ as `[E1]`, `[E2]`, and `[E3]` in the grounded prompt and requires answer text to
 place those markers directly after supported claims. The mock LLM follows the
 same contract deterministically, so local/offline tests validate the product
 behavior without API keys or network access.
+
+## Decision 022: Use Vite React TypeScript for the product UI layer
+
+Reason:
+
+Stage 3 needs a product-like three-panel interface with typed API contracts,
+component-level tests and fast local iteration while keeping Streamlit as a
+backup. Vite + React + TypeScript provides a small frontend layer over the
+existing FastAPI adapter without changing the RAG core, adding a database,
+introducing streaming, or requiring API keys. The frontend uses mocked fetch
+responses in tests so UI behavior remains offline-first.

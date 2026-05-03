@@ -152,6 +152,9 @@ It should support:
 ```bash
 python scripts/dev.py test
 python scripts/dev.py run
+python scripts/dev.py api
+python scripts/dev.py ui
+python scripts/dev.py ui-test
 python scripts/dev.py eval
 python scripts/dev.py clean
 python scripts/dev.py info
@@ -280,6 +283,25 @@ python -m streamlit run app/streamlit_app.py
 ```
 
 If API keys are missing, the app should still run in mock/local mode.
+
+React product UI commands require Node/npm:
+
+```bash
+cd frontend
+npm install
+cd ..
+python scripts/dev.py api
+python scripts/dev.py ui
+python scripts/dev.py ui-test
+```
+
+On Windows PowerShell, `npm --version` may resolve to `npm.ps1` and be blocked
+by execution policy. `scripts/dev.py` uses `npm.cmd` and adds the common Node
+installation directory to the child-process PATH, so prefer:
+
+```powershell
+python scripts/dev.py ui-test
+```
 
 ---
 

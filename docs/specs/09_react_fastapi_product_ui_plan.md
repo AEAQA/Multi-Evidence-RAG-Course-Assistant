@@ -188,6 +188,28 @@ Citation behavior:
 * clicking `[E1]` scrolls to and highlights Evidence E1 in the right panel;
 * if scrolling fails, answer text and citation markers remain readable.
 
+Implementation status:
+
+* `frontend/` contains a Vite + React + TypeScript product UI.
+* The UI consumes the Stage 1/2 FastAPI adapter through typed client functions
+  for status, documents, upload, delete, query and evaluation summary.
+* The page is implemented as a full-height three-panel RAG workbench:
+  Knowledge Base, Grounded Study Chat and Evidence Intelligence.
+* Citation markers are parsed from `answer.text` and rendered as inline
+  anchors. Resolved markers call the evidence panel highlight/scroll behavior;
+  unresolved markers remain readable plain text.
+* The Evidence Intelligence panel renders final evidence cards first, then
+  retrieval flow, BM25/Dense/Fusion/Reranker method tabs, timing/scope
+  diagnostics and collapsed evaluation metrics.
+* `python scripts/dev.py ui` runs the Vite development server and
+  `python scripts/dev.py ui-test` runs the mocked frontend test suite.
+
+Stage 3 verification note:
+
+Stage 3 is verified with `python scripts/dev.py ui-test` passing 6 mocked React
+tests, `python scripts/dev.py test` passing 91 local/offline Python tests, and
+`python scripts/dev.py eval` completing retrieval evaluation reports.
+
 ## Stage 4: Evaluation Visualization
 
 Evaluation should support the data science assessment without dominating the product UI.

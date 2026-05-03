@@ -13,6 +13,9 @@ M7-patch2: Chat-centered RAG Study Chat with local document upload complete
 M7-patch3: Three-panel RAG workbench with material scope refinement complete
 M7-patch4: Streamlit performance stabilization complete
 M7-patch5: Single-page Evidence Intelligence workbench refinement complete
+Stage 1: FastAPI backend layer complete
+Stage 2: Prompt-driven grounded answer contract complete
+Stage 3: React three-panel product UI complete
 ```
 
 ## What works now
@@ -110,6 +113,16 @@ M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 * `python scripts/dev.py test -- tests/unit/test_generation.py tests/unit/test_query_service.py tests/unit/test_fastapi_api.py tests/unit/test_api_providers.py tests/unit/test_mock_clients.py -vv` passes 30 Stage 2-related tests.
 * `python scripts/dev.py test` passes 91 tests after Stage 2.
 * `python scripts/dev.py eval` completes after Stage 2 and rewrites retrieval metrics, latency metrics and error cases reports.
+* `frontend/` now contains a Vite + React + TypeScript product UI for the FastAPI adapter.
+* The React UI implements the Stage 3 three-panel workbench: Knowledge Base, Grounded Study Chat and Evidence Intelligence.
+* React loads status/documents/evaluation summary, uploads and deletes local documents, submits `/api/query`, and renders evidence intelligence from the Stage 1/2 response contract.
+* React parses inline citation markers such as `[E1]` into anchors and highlights the matching right-panel evidence card.
+* Mocked React tests are written for the three-panel shell, document state, upload failure, selected scope payloads, citation linking, retrieval methods and diagnostics.
+* `python scripts/dev.py ui` and `python scripts/dev.py ui-test` are available for the React frontend.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test -- tests\unit\test_fastapi_api.py tests\unit\test_query_service.py tests\unit\test_generation.py -vv` passes 18 focused Stage 3 regression tests.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test` passes 6 mocked React tests after Node/npm installation.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 3 frontend verification.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 3 and rewrites retrieval metrics, latency metrics and error cases reports.
 
 ## What is missing
 
@@ -146,7 +159,11 @@ python scripts/dev.py api-smoke
 * M7-patch2 keeps FastAPI/React deferred; Streamlit remains the MVP UI.
 * `python -m pytest` may hit Windows temp-directory `PermissionError`; use a workspace-local `--basetemp` path if needed.
 * Stage 1 FastAPI tests require `fastapi`, `uvicorn`, `python-multipart` and `httpx`; keep the Conda environment synchronized with `environment.yml`.
+* On Windows PowerShell, `npm --version` may hit the `npm.ps1` execution policy
+  even when Node is installed. `scripts/dev.py` resolves `npm.cmd` and
+  temporarily adds `C:\Program Files\nodejs` to the child-process PATH.
 
 ## Next step
 
-Continue React/FastAPI product UI migration with Stage 3: the React three-panel workbench and citation-to-evidence interaction.
+Continue with Stage 4 evaluation visualization polish and full-stack browser
+verification.

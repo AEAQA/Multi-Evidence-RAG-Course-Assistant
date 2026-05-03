@@ -6,6 +6,8 @@ python scripts/dev.py info
 python scripts/dev.py test
 python scripts/dev.py run
 python scripts/dev.py api
+python scripts/dev.py ui
+python scripts/dev.py ui-test
 python scripts/dev.py eval
 python scripts/dev.py api-smoke
 python scripts/dev.py clean
@@ -39,6 +41,10 @@ def run_command(command: list[str], cwd: Path | None = None) -> int:
         if not existing_pythonpath
         else os.pathsep.join([src_path, existing_pythonpath])
     )
+    if platform.system() == "Windows":
+        node_dir = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "nodejs"
+        if node_dir.exists():
+            env["PATH"] = os.pathsep.join([str(node_dir), env.get("PATH", "")])
     print(f"\n[dev.py] Running: {' '.join(command)}")
     print(f"[dev.py] Working directory: {cwd}\n")
     try:
@@ -119,6 +125,41 @@ def cmd_api(_: argparse.Namespace) -> int:
     )
 
 
+def _npm_command() -> str:
+    npm_name = "npm.cmd" if platform.system() == "Windows" else "npm"
+    resolved = shutil.which(npm_name)
+    if resolved:
+        return resolved
+    if platform.system() == "Windows":
+        candidates = [
+            Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "nodejs" / "npm.cmd",
+            Path(os.environ.get("APPDATA", "")) / "npm" / "npm.cmd",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "nodejs" / "npm.cmd",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+    return npm_name
+
+
+def cmd_ui(_: argparse.Namespace) -> int:
+    """Run the React product UI dev server."""
+    frontend_dir = ROOT / "frontend"
+    if not frontend_dir.exists():
+        print(f"[dev.py] Frontend directory not found: {frontend_dir}")
+        return 1
+    return run_command([_npm_command(), "run", "dev"], cwd=frontend_dir)
+
+
+def cmd_ui_test(_: argparse.Namespace) -> int:
+    """Run React product UI tests."""
+    frontend_dir = ROOT / "frontend"
+    if not frontend_dir.exists():
+        print(f"[dev.py] Frontend directory not found: {frontend_dir}")
+        return 1
+    return run_command([_npm_command(), "run", "test"], cwd=frontend_dir)
+
+
 def cmd_eval(_: argparse.Namespace) -> int:
     """Run retrieval evaluation pipeline."""
     module = "rag_project.evaluation.run_evaluation"
@@ -190,6 +231,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     api_parser = subparsers.add_parser("api", help="Run FastAPI adapter.")
     api_parser.set_defaults(func=cmd_api)
+
+    ui_parser = subparsers.add_parser("ui", help="Run React product UI.")
+    ui_parser.set_defaults(func=cmd_ui)
+
+    ui_test_parser = subparsers.add_parser("ui-test", help="Run React product UI tests.")
+    ui_test_parser.set_defaults(func=cmd_ui_test)
 
     eval_parser = subparsers.add_parser("eval", help="Run evaluation.")
     eval_parser.set_defaults(func=cmd_eval)

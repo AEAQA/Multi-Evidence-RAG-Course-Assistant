@@ -384,3 +384,45 @@ Backend expectation:
   supported claims;
 * React should not need to synthesize a separate `References` block for normal
   grounded answers.
+
+## Stage 3 React Workbench Implementation
+
+The React product UI is implemented under `frontend/` as a Vite + React +
+TypeScript application.
+
+Implemented layout:
+
+```text
+Left: Knowledge Base
+Center: Grounded Study Chat
+Right: Evidence Intelligence
+```
+
+Left panel:
+
+* loads status and document metadata from the FastAPI adapter;
+* uploads PDF/TXT/MD/MARKDOWN files through `/api/documents/upload`;
+* lists document ID, filename, chunk count and type summary;
+* supports sample, uploaded and combined retrieval scope;
+* supports selected-document filtering and deletion.
+
+Center panel:
+
+* submits questions to `/api/query`;
+* preserves a chat transcript for the current page session;
+* renders grounded natural-language answers from `answer.text`;
+* parses `[E1]`, `[E2]`, and later markers into inline citation anchors.
+
+Right panel:
+
+* shows `final_evidence` cards before diagnostics;
+* highlights and scrolls to the matching card when an inline citation is clicked;
+* renders retrieval flow stages, BM25/Dense/Fusion/Reranker method tabs,
+  score bars, timing, scope, suggestions and collapsed evaluation metrics.
+
+Verification:
+
+* `python scripts/dev.py ui-test` passes 6 mocked React tests covering the
+  intended offline UI behavior.
+* `python scripts/dev.py test` passes the full local/offline Python suite after
+  the React UI addition.
