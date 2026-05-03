@@ -1,4 +1,8 @@
-from rag_project.app_services.query_service import QueryService
+from rag_project.app_services.query_service import (
+    QueryService,
+    build_corpus_signature,
+    build_retrieval_pipeline,
+)
 from rag_project.config import AppConfig
 from rag_project.schemas import Chunk, ChunkMetadata
 
@@ -18,12 +22,34 @@ def test_query_service_returns_workbench_state() -> None:
     assert state.retrieval.fusion_results
     assert state.retrieval.reranked_results
     assert state.timing_ms["total"] >= 0
+    assert {
+        "bm25",
+        "dense",
+        "fusion",
+        "reranker",
+        "retrieval",
+        "retrieval_total",
+        "pipeline_build",
+        "generation",
+        "total",
+    } <= set(state.timing_ms)
     assert {item.method for item in state.diagnostics} == {
         "bm25",
         "dense",
         "fusion",
         "reranked",
     }
+    assert [item.evidence_id for item in state.final_evidence[:3]] == ["E1", "E2", "E3"]
+    assert all(citation.evidence_id for citation in state.answer.citations)
+    assert "[E1]" in state.answer.answer
+    assert [stage.stage for stage in state.retrieval_trace] == [
+        "BM25",
+        "Dense",
+        "Fusion",
+        "Reranker",
+        "Final Evidence",
+    ]
+    assert state.scope["chunk_count"] > 0
 
 
 def test_query_service_no_key_api_mode_falls_back_to_mock() -> None:
@@ -104,3 +130,43 @@ def test_query_service_exposes_scored_final_evidence_results() -> None:
     assert result.chunk_id == chunk.chunk_id
     assert result.method == "reranked"
     assert result.score >= 0
+    assert state.final_evidence[0].evidence_id == "E1"
+    assert state.final_evidence[0].chunk_id == chunk.chunk_id
+    assert state.answer.citations[0].evidence_id == "E1"
+
+
+def test_query_service_accepts_prebuilt_retrieval_pipeline() -> None:
+    chunk = Chunk(
+        chunk_id="uploaded_doc_page001_text_0001",
+        doc_id="uploaded_doc",
+        source_file="custom_notes.txt",
+        page=1,
+        type="text",
+        text="Cached indexes should answer questions about validation data.",
+        metadata=ChunkMetadata(),
+    )
+    pipeline = build_retrieval_pipeline([chunk])
+
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[chunk],
+        retrieval_pipeline=pipeline,
+    ).run("What should cached indexes answer about?", top_k=1)
+
+    assert state.answer.citations[0].source_file == "custom_notes.txt"
+    assert state.timing_ms["pipeline_build"] >= 0
+    assert state.timing_ms["bm25"] >= 0
+
+
+def test_build_corpus_signature_is_stable_for_same_chunks() -> None:
+    chunk = Chunk(
+        chunk_id="doc_page001_text_0001",
+        doc_id="doc",
+        source_file="notes.txt",
+        page=1,
+        type="text",
+        text="Stable signatures let Streamlit reuse cached retrieval pipelines.",
+        metadata=ChunkMetadata(),
+    )
+
+    assert build_corpus_signature([chunk]) == build_corpus_signature([chunk])

@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_UPLOAD_DIR = ROOT / "data" / "processed" / "uploads"
 DEFAULT_REGISTRY_PATH = ROOT / "data" / "processed" / "corpus_registry.json"
 DEFAULT_UPLOAD_IMAGE_DIR = ROOT / "data" / "processed" / "images"
+DEFAULT_CHUNK_CACHE_DIR = ROOT / "data" / "processed" / "chunks"
 SUPPORTED_UPLOAD_SUFFIXES = {".txt", ".md", ".markdown", ".pdf"}
 
 SAMPLE_QUESTIONS: list[str] = [
@@ -51,6 +52,10 @@ class DocumentRecord(BaseModel):
     chunk_count: int
     type_counts: dict[str, int] = Field(default_factory=dict)
     created_at: str
+    chunk_cache_path: str | None = None
+    source_size: int | None = None
+    source_mtime: float | None = None
+    status: str = "ready"
 
 
 class UploadFailure(BaseModel):
@@ -109,10 +114,13 @@ def ingest_uploaded_files(
     upload_dir: str | Path = DEFAULT_UPLOAD_DIR,
     registry_path: str | Path = DEFAULT_REGISTRY_PATH,
     image_output_dir: str | Path = DEFAULT_UPLOAD_IMAGE_DIR,
+    chunk_cache_dir: str | Path = DEFAULT_CHUNK_CACHE_DIR,
 ) -> UploadResult:
     """Save and ingest uploaded .txt/.pdf files with non-blocking failures."""
     upload_root = Path(upload_dir)
     upload_root.mkdir(parents=True, exist_ok=True)
+    cache_root = Path(chunk_cache_dir)
+    cache_root.mkdir(parents=True, exist_ok=True)
     registry = _load_registry(Path(registry_path))
     uploaded: list[DocumentRecord] = []
     failed: list[UploadFailure] = []
@@ -148,6 +156,8 @@ def ingest_uploaded_files(
             )
             if not chunks:
                 raise ValueError("No readable chunks were produced")
+            cache_path = cache_root / f"{doc_id}.json"
+            _save_chunk_cache(cache_path, chunks)
             record = DocumentRecord(
                 doc_id=doc_id,
                 filename=filename,
@@ -155,6 +165,10 @@ def ingest_uploaded_files(
                 chunk_count=len(chunks),
                 type_counts=_type_counts(chunks),
                 created_at=_utcnow_iso(),
+                chunk_cache_path=str(cache_path),
+                source_size=stored_path.stat().st_size,
+                source_mtime=stored_path.stat().st_mtime,
+                status="ready",
             )
         except Exception as exc:
             if stored_path.exists():
@@ -174,6 +188,7 @@ def load_uploaded_corpus(
     selected_doc_ids: list[str] | None = None,
     registry_path: str | Path = DEFAULT_REGISTRY_PATH,
     image_output_dir: str | Path = DEFAULT_UPLOAD_IMAGE_DIR,
+    chunk_cache_dir: str | Path = DEFAULT_CHUNK_CACHE_DIR,
 ) -> CorpusBundle:
     """Load chunks for uploaded documents from the local registry."""
     registry = _load_registry(Path(registry_path))
@@ -187,18 +202,23 @@ def load_uploaded_corpus(
 
     chunks: list[Chunk] = []
     warnings: list[str] = []
+    registry_changed = False
+    registry_file = Path(registry_path)
     for record in records:
         try:
-            chunks.extend(
-                _load_chunks_for_record(
-                    Path(record.stored_path),
-                    doc_id=record.doc_id,
-                    filename=record.filename,
-                    image_output_dir=image_output_dir,
-                )
+            record_chunks, updated_record = _load_chunks_for_document_record(
+                record,
+                image_output_dir=image_output_dir,
+                chunk_cache_dir=chunk_cache_dir,
             )
+            chunks.extend(record_chunks)
+            if updated_record is not record:
+                registry[record.doc_id] = updated_record
+                registry_changed = True
         except Exception as exc:
             warnings.append(f"{record.filename}: {exc}")
+    if registry_changed:
+        _save_registry(registry_file, registry)
 
     return CorpusBundle(
         chunks=chunks,
@@ -217,6 +237,7 @@ def load_corpus_bundle(
     *,
     registry_path: str | Path = DEFAULT_REGISTRY_PATH,
     image_output_dir: str | Path = DEFAULT_UPLOAD_IMAGE_DIR,
+    chunk_cache_dir: str | Path = DEFAULT_CHUNK_CACHE_DIR,
 ) -> CorpusBundle:
     """Resolve the sample/uploaded/combined corpus selection."""
     resolved = selection or CorpusSelection()
@@ -226,6 +247,7 @@ def load_corpus_bundle(
             selected_doc_ids=resolved.selected_doc_ids,
             registry_path=registry_path,
             image_output_dir=image_output_dir,
+            chunk_cache_dir=chunk_cache_dir,
         )
         if resolved.mode in {"uploaded", "combined"}
         else CorpusBundle(
@@ -252,6 +274,15 @@ def load_corpus_bundle(
     )
 
 
+def load_document_registry(
+    *, registry_path: str | Path = DEFAULT_REGISTRY_PATH
+) -> list[DocumentRecord]:
+    """Load uploaded document metadata without loading chunks."""
+    records = list(_load_registry(Path(registry_path)).values())
+    records.sort(key=lambda record: record.created_at, reverse=True)
+    return records
+
+
 def delete_uploaded_document(
     doc_id: str,
     *,
@@ -264,6 +295,8 @@ def delete_uploaded_document(
     if record is None:
         return False
     Path(record.stored_path).unlink(missing_ok=True)
+    if record.chunk_cache_path:
+        Path(record.chunk_cache_path).unlink(missing_ok=True)
     _save_registry(registry_file, registry)
     return True
 
@@ -360,3 +393,52 @@ def _slugify(filename: str) -> str:
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _load_chunks_for_document_record(
+    record: DocumentRecord,
+    *,
+    image_output_dir: str | Path,
+    chunk_cache_dir: str | Path,
+) -> tuple[list[Chunk], DocumentRecord]:
+    if record.chunk_cache_path and Path(record.chunk_cache_path).exists():
+        return _load_chunk_cache(Path(record.chunk_cache_path)), record
+
+    chunks = _load_chunks_for_record(
+        Path(record.stored_path),
+        doc_id=record.doc_id,
+        filename=record.filename,
+        image_output_dir=image_output_dir,
+    )
+    if not chunks:
+        raise ValueError("No readable chunks were produced")
+
+    cache_root = Path(chunk_cache_dir)
+    cache_root.mkdir(parents=True, exist_ok=True)
+    cache_path = cache_root / f"{record.doc_id}.json"
+    _save_chunk_cache(cache_path, chunks)
+    source_path = Path(record.stored_path)
+    updated = record.model_copy(
+        update={
+            "chunk_cache_path": str(cache_path),
+            "chunk_count": len(chunks),
+            "type_counts": _type_counts(chunks),
+            "source_size": source_path.stat().st_size if source_path.exists() else None,
+            "source_mtime": source_path.stat().st_mtime if source_path.exists() else None,
+            "status": "ready",
+        }
+    )
+    return chunks, updated
+
+
+def _save_chunk_cache(path: Path, chunks: list[Chunk]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = [chunk.model_dump(mode="json") for chunk in chunks]
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_chunk_cache(path: Path) -> list[Chunk]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError("Chunk cache is not a list")
+    return [Chunk.model_validate(item) for item in payload]

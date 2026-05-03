@@ -46,6 +46,11 @@
 * M7-patch3 `.md` and `.markdown` upload support.
 * M7-patch3 scored final evidence results for the right evidence panel.
 * Unit tests for optional material selection semantics and chunk-level evidence row metadata.
+* M7-patch4 processed chunk cache for uploaded documents under ignored `data/processed/chunks/`.
+* M7-patch4 timing instrumentation for app reruns, document metadata/chunk loading, upload ingestion, BM25, dense retrieval, fusion, reranker, generation, and total query time.
+* Unit tests for chunk-cache loading, metadata-only registry reads, legacy registry cache upgrade, prebuilt retrieval pipeline usage, and stable corpus signatures.
+* M7-patch5 evidence IDs, final evidence rows, retrieval trace stages and query scope output for citation-aware UI interaction.
+* Unit tests for evidence markers, evidence IDs, retrieval trace output and Streamlit score helper behavior.
 
 ### Changed
 
@@ -71,6 +76,13 @@
 * README/spec positioning now allows `RAG chatbot` wording while clarifying that the project is not a generic LLM chatbox.
 * Streamlit Page 1 now uses a fixed three-panel RAG workbench: materials on the left, chat in the center, evidence/retrieval methods on the right.
 * Uploaded document selection now acts as an optional corpus-scope filter; empty selection searches all uploaded documents.
+* Uploaded corpus loading now reads processed chunk caches on normal reruns instead of reprocessing raw PDFs/text/markdown files.
+* Streamlit now caches runtime/provider state, uploaded metadata, corpus bundles, evaluation reports, and retrieval pipelines.
+* Query orchestration can accept a prebuilt retrieval pipeline so BM25 and fake dense indexes can be reused for the active corpus.
+* Streamlit primary UI now behaves as a single-page Evidence Intelligence workbench rather than a separate dashboard-led experience.
+* Center answer panel now includes citation marker controls that highlight matching evidence in the right panel.
+* Evaluation metrics are now integrated into a collapsed right-panel section so DS evidence remains available without dominating the chat experience.
+* The single-page Streamlit workbench now hides the legacy sidebar and uses a wider main container.
 
 ### Known cleanup notes
 
@@ -79,3 +91,5 @@
 ### Fixed
 
 * Resolved Conda YAML parsing failure caused by invalid list syntax in `environment.yml`.
+* Fixed Streamlit/PyArrow dataframe conversion for image metadata by rendering `bbox` as a string instead of mixing list and scalar values.
+* Verified Method Comparison has non-empty BM25, Dense, Fusion and Reranked groups for the sample query path.

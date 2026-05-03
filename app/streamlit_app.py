@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 import sys
+from time import perf_counter
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -13,6 +15,7 @@ if str(SRC) not in sys.path:
 import streamlit as st
 
 from rag_project.app_services.corpus_service import (
+    DEFAULT_REGISTRY_PATH,
     CorpusBundle,
     CorpusSelection,
     CorpusSummary,
@@ -20,42 +23,124 @@ from rag_project.app_services.corpus_service import (
     delete_uploaded_document,
     ingest_uploaded_files,
     load_corpus_bundle,
-    load_uploaded_corpus,
+    load_document_registry,
 )
 from rag_project.app_services.provider_status import ProviderStatus, build_provider_status
-from rag_project.app_services.query_service import MethodDiagnostic, WorkbenchState, run_query
+from rag_project.app_services.query_service import (
+    MethodDiagnostic,
+    WorkbenchState,
+    build_corpus_signature,
+    build_retrieval_pipeline,
+    run_query,
+)
 from rag_project.config import load_config
-from rag_project.schemas import Chunk, RetrievalResult
+from rag_project.providers import create_reranker_client
+from rag_project.schemas import Chunk, EvidenceReference, RetrievalResult, RetrievalTraceStage
 from rag_project.ui.dashboard_data import load_or_create_evaluation_reports
 
 
 DEFAULT_QUERY = "What is overfitting and why does validation data matter?"
 
 
+@st.cache_resource(show_spinner=False)
+def _get_runtime_config():
+    return load_config()
+
+
+@st.cache_resource(show_spinner=False)
+def _get_provider_status() -> ProviderStatus:
+    return build_provider_status(_get_runtime_config())
+
+
+def _registry_cache_token() -> tuple[str, float, int]:
+    path = Path(DEFAULT_REGISTRY_PATH)
+    if not path.exists():
+        return (str(path), 0.0, 0)
+    stat = path.stat()
+    return (str(path), stat.st_mtime, stat.st_size)
+
+
+@st.cache_data(show_spinner=False)
+def _load_uploaded_documents_cached(
+    registry_token: tuple[str, float, int],
+) -> list[DocumentRecord]:
+    del registry_token
+    return load_document_registry()
+
+
+@st.cache_data(show_spinner=False)
+def _load_corpus_bundle_cached(
+    mode: str,
+    selected_doc_ids: tuple[str, ...],
+    registry_token: tuple[str, float, int],
+) -> CorpusBundle:
+    del registry_token
+    return load_corpus_bundle(
+        CorpusSelection(mode=mode, selected_doc_ids=list(selected_doc_ids))
+    )
+
+
+@st.cache_data(show_spinner=False)
+def _load_evaluation_reports_cached():
+    return load_or_create_evaluation_reports()
+
+
+def _serialize_chunks(chunks: list[Chunk]) -> str:
+    return json.dumps(
+        [chunk.model_dump(mode="json") for chunk in chunks],
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+
+
+@st.cache_resource(show_spinner=False)
+def _get_retrieval_pipeline_cached(
+    chunk_payload: str,
+    corpus_signature: str,
+    reranker_provider_key: tuple[str, str, str, str],
+):
+    del corpus_signature, reranker_provider_key
+    chunks = [Chunk.model_validate(item) for item in json.loads(chunk_payload)]
+    return build_retrieval_pipeline(
+        chunks,
+        reranker=create_reranker_client(_get_runtime_config()),
+    )
+
+
+def _reranker_provider_key() -> tuple[str, str, str, str]:
+    config = _get_runtime_config()
+    return (
+        config.app_mode,
+        config.reranker_provider,
+        config.reranker_model,
+        "key-set" if config.siliconflow_api_key else "key-missing",
+    )
+
+
+def _clear_corpus_caches() -> None:
+    _load_uploaded_documents_cached.clear()
+    _load_corpus_bundle_cached.clear()
+    _get_retrieval_pipeline_cached.clear()
+
+
 def main() -> None:
     """Run the Streamlit app."""
-    config = load_config()
-    provider_status = build_provider_status(config)
+    rerun_started = perf_counter()
+    config = _get_runtime_config()
+    provider_status = _get_provider_status()
 
     st.set_page_config(
         page_title="RAG Study Assistant",
         page_icon="R",
         layout="wide",
+        initial_sidebar_state="collapsed",
     )
     _inject_style()
     _render_header(config.app_mode)
 
-    page = st.sidebar.radio(
-    "Workspace",
-        ["RAG Workbench", "Evaluation Dashboard"],
-        label_visibility="collapsed",
-    )
-    _render_sidebar_status(provider_status)
+    _render_rag_workbench(provider_status)
 
-    if page == "RAG Workbench":
-        _render_rag_workbench(provider_status)
-    else:
-        _render_evaluation_dashboard()
+    st.session_state["last_rerun_ms"] = round((perf_counter() - rerun_started) * 1000, 3)
 
 
 def _render_header(app_mode: str) -> None:
@@ -94,15 +179,27 @@ def _render_sidebar_status(provider_status: ProviderStatus) -> None:
 def _render_rag_workbench(provider_status: ProviderStatus) -> None:
     _ensure_chat_session()
     upload_status = _handle_upload_action()
-    all_uploaded = load_uploaded_corpus()
+    doc_load_started = perf_counter()
+    all_uploaded = _load_uploaded_documents_cached(_registry_cache_token())
+    st.session_state["document_metadata_loading_ms"] = round(
+        (perf_counter() - doc_load_started) * 1000, 3
+    )
 
     left, center, right = st.columns([0.74, 1.36, 1.0], gap="large")
     with left:
-        selection = _render_corpus_manager(all_uploaded.documents, upload_status)
+        selection = _render_corpus_manager(all_uploaded, upload_status)
         _render_provider_status_panel(provider_status)
 
     if st.session_state.get("rag_enabled", True):
-        corpus_bundle = load_corpus_bundle(selection)
+        corpus_load_started = perf_counter()
+        corpus_bundle = _load_corpus_bundle_cached(
+            selection.mode,
+            tuple(selection.selected_doc_ids),
+            _registry_cache_token(),
+        )
+        st.session_state["document_chunk_loading_ms"] = round(
+            (perf_counter() - corpus_load_started) * 1000, 3
+        )
     else:
         corpus_bundle = CorpusBundle(
             chunks=[],
@@ -120,11 +217,19 @@ def _render_rag_workbench(provider_status: ProviderStatus) -> None:
         if _should_run_query(run_clicked, query):
             with st.spinner("Retrieving evidence, reranking candidates, and drafting a grounded answer..."):
                 try:
+                    corpus_signature = build_corpus_signature(corpus_bundle.chunks)
+                    retrieval_pipeline = _get_retrieval_pipeline_cached(
+                        _serialize_chunks(corpus_bundle.chunks),
+                        corpus_signature,
+                        _reranker_provider_key(),
+                    )
+                    st.session_state["last_corpus_signature"] = corpus_signature
                     st.session_state["last_workbench_state"] = run_query(
                         query,
                         corpus_bundle,
                         top_k=top_k,
-                        config=load_config(),
+                        config=_get_runtime_config(),
+                        retrieval_pipeline=retrieval_pipeline,
                     )
                 except Exception as exc:  # pragma: no cover - defensive Streamlit fallback
                     st.session_state["last_workbench_error"] = str(exc)
@@ -161,7 +266,12 @@ def _ensure_chat_session() -> None:
 def _handle_upload_action():
     files = st.session_state.get("pending_upload_files") or []
     if st.session_state.pop("ingest_pending_uploads", False) and files:
+        upload_started = perf_counter()
         result = ingest_uploaded_files(files)
+        st.session_state["upload_ingestion_ms"] = round(
+            (perf_counter() - upload_started) * 1000, 3
+        )
+        _clear_corpus_caches()
         selected = set(st.session_state.get("selected_doc_ids", []))
         selected.update(record.doc_id for record in result.uploaded)
         st.session_state["selected_doc_ids"] = sorted(selected)
@@ -261,6 +371,7 @@ def _render_document_selector(documents: list[DocumentRecord]) -> list[str]:
 
             if st.button("Delete", key=f"doc_delete_{record.doc_id}"):
                 delete_uploaded_document(record.doc_id)
+                _clear_corpus_caches()
                 st.session_state["selected_doc_ids"] = [
                     doc_id
                     for doc_id in st.session_state.get("selected_doc_ids", [])
@@ -328,102 +439,196 @@ def _render_answer_panel(state: WorkbenchState) -> None:
     summary = state.corpus_summary or CorpusSummary(corpus_name="Current corpus", chunk_count=0)
     st.markdown(
         f"""
-        <div class="answer-meta">
-          <span>{len(state.answer.evidence_chunks)} cited evidence chunks</span>
-          <span>{state.timing_ms.get("total", 0):.1f} ms total</span>
-          <span>{_escape_preview(summary.corpus_name)}</span>
+        <div class="chat-message assistant-msg">
+          <div class="message-avatar">RA</div>
+          <div class="message-body">
+            <div class="answer-meta">
+              <span>{len(state.final_evidence)} cited evidence chunks</span>
+              <span>{state.timing_ms.get("total", 0):.1f} ms total</span>
+              <span>{_escape_preview(summary.corpus_name)}</span>
+            </div>
+            <div class="answer-text">{_escape_preview(state.answer.answer)}</div>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
     if state.answer.insufficient_evidence:
-        st.warning(state.answer.answer)
-    else:
-        st.markdown(f'<div class="answer-text">{_escape_preview(state.answer.answer)}</div>', unsafe_allow_html=True)
+        st.warning("Insufficient evidence. Review the Evidence Intelligence panel before using this answer.")
 
-    if state.answer.citations:
-        st.markdown("#### Citations")
-        st.dataframe(
-            [
-                {
-                    "chunk_id": citation.chunk_id,
-                    "source": citation.source_file,
-                    "page": citation.page,
-                }
-                for citation in state.answer.citations
-            ],
-            use_container_width=True,
-            hide_index=True,
-        )
+    if state.final_evidence:
+        st.markdown("#### Cited evidence")
+        cols = st.columns(min(3, len(state.final_evidence)))
+        for index, evidence in enumerate(state.final_evidence):
+            with cols[index % len(cols)]:
+                if st.button(
+                    f"View {evidence.evidence_id}",
+                    key=f"view_{evidence.evidence_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state["active_evidence_id"] = evidence.evidence_id
+        st.caption("Citation buttons highlight the matching evidence in the right panel.")
 
 
 def _render_right_placeholder() -> None:
-    st.markdown('<div class="section-title">Evidence / Retrieval</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Evidence Intelligence</div>', unsafe_allow_html=True)
     st.info("Run a RAG query to inspect cited chunks and retrieval method outputs.")
 
 
 def _render_right_evidence_panel(state: WorkbenchState) -> None:
-    st.markdown('<div class="section-title">Evidence / Retrieval</div>', unsafe_allow_html=True)
-    weak = state.answer.insufficient_evidence or not state.final_evidence_results
+    st.markdown('<div class="section-title">Evidence Intelligence</div>', unsafe_allow_html=True)
+    weak = state.answer.insufficient_evidence or not state.final_evidence
     if weak:
-        st.warning("Insufficient or weak evidence. Review the retrieved chunks before trusting the answer.")
+        st.warning("Insufficient or weak evidence. Review retrieved chunks before trusting the answer.")
 
-    st.markdown("#### Final evidence chunks")
-    if not state.final_evidence_results:
-        st.info("No final evidence chunks were selected.")
-    for index, result in enumerate(state.final_evidence_results, start=1):
-        chunk = result.chunk
-        title = (
-            f"#{index} {chunk.source_file} p.{chunk.page} | "
-            f"{chunk.type} | score {result.score:.3f}"
-        )
-        with st.expander(title, expanded=index <= 2):
-            st.caption(
-                f"chunk_id={chunk.chunk_id} | doc_id={chunk.doc_id} | method={result.method}"
-            )
-            st.markdown(
-                f'<div class="evidence-chip"><span>{_escape_preview(_chunk_preview(chunk))}</span></div>',
-                unsafe_allow_html=True,
-            )
-            _render_chunk_media(chunk)
-
-    with st.expander("Method confidence and latency", expanded=True):
-        for diagnostic in state.diagnostics:
-            st.markdown(
-                f"**{diagnostic.method.upper()}** | {diagnostic.confidence_label} | "
-                f"{diagnostic.result_count} results"
-            )
-            st.progress(diagnostic.confidence)
-            st.caption(diagnostic.recommendation)
-        st.caption(
-            f"retrieval={state.timing_ms.get('retrieval', 0):.1f} ms | "
-            f"generation={state.timing_ms.get('generation', 0):.1f} ms | "
-            f"total={state.timing_ms.get('total', 0):.1f} ms"
-        )
-
-    st.markdown("#### Retrieval methods")
-    tabs = st.tabs(["BM25", "Dense", "Fusion", "Reranked"])
-    result_groups = [
-        state.retrieval.bm25_results,
-        state.retrieval.dense_results,
-        state.retrieval.fusion_results,
-        state.retrieval.reranked_results,
-    ]
-    for tab, results in zip(tabs, result_groups):
-        with tab:
-            st.dataframe(_results_to_frame(results), use_container_width=True, hide_index=True)
+    active_id = st.session_state.get("active_evidence_id")
+    _render_cited_evidence(state.final_evidence, active_id=active_id)
+    _render_retrieval_flow(state.retrieval_trace)
+    _render_method_comparison(state)
+    _render_integrated_evaluation_metrics()
 
     with st.expander("Debug view", expanded=False):
         st.write(
             {
                 "query": state.query,
+                "scope": state.scope,
+                "active_evidence_id": active_id,
                 "provider_status": state.provider_status.as_runtime_dict(),
-                "timing_ms": state.timing_ms,
+                "timing_ms": {
+                    **state.timing_ms,
+                    "last_rerun": st.session_state.get("last_rerun_ms", 0),
+                    "document_metadata_loading": st.session_state.get("document_metadata_loading_ms", 0),
+                    "document_chunk_loading": st.session_state.get("document_chunk_loading_ms", 0),
+                    "upload_ingestion": st.session_state.get("upload_ingestion_ms", 0),
+                },
+                "corpus_signature": st.session_state.get("last_corpus_signature", ""),
                 "retrieval_explanation": state.answer.retrieval_explanation,
                 "diagnostics": _diagnostics_to_rows(state.diagnostics),
                 "corpus_warnings": state.corpus_warnings,
             }
         )
+
+
+def _render_cited_evidence(
+    evidence_items: list[EvidenceReference], *, active_id: str | None
+) -> None:
+    st.markdown("#### Cited Evidence")
+    if not evidence_items:
+        st.info("No final evidence chunks were selected.")
+        return
+
+    ordered = sorted(
+        evidence_items,
+        key=lambda item: (item.evidence_id != active_id, item.evidence_id),
+    )
+    for evidence in ordered:
+        active = evidence.evidence_id == active_id
+        title = (
+            f"{evidence.evidence_id} | {evidence.source_file} p.{evidence.page} | "
+            f"{evidence.type} | score {evidence.score:.3f}"
+        )
+        with st.expander(title, expanded=active or evidence.evidence_id == "E1"):
+            if active:
+                st.markdown('<div class="active-evidence">Selected from answer</div>', unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="evidence-chip {'evidence-active' if active else ''}">
+                  <b>{_escape_preview(evidence.evidence_id)} | {_escape_preview(evidence.method.upper())}</b>
+                  <span>chunk_id={_escape_preview(evidence.chunk_id)} | doc_id={_escape_preview(evidence.doc_id)}</span>
+                  <span>{_escape_preview(evidence.preview)}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.progress(evidence.confidence)
+            st.caption(f"confidence={evidence.confidence:.3f} | source={evidence.source_file} | page={evidence.page}")
+            _render_chunk_media(evidence.chunk)
+
+
+def _render_retrieval_flow(trace: list[RetrievalTraceStage]) -> None:
+    with st.expander("Retrieval flow", expanded=True):
+        if not trace:
+            st.info("Run a query to see retrieval flow diagnostics.")
+            return
+        cols = st.columns(len(trace))
+        for col, stage in zip(cols, trace):
+            with col:
+                st.markdown(
+                    f"""
+                    <div class="flow-card">
+                      <b>{_escape_preview(stage.stage)}</b>
+                      <span>{stage.result_count} top-k</span>
+                      <span>best {stage.top_score:.3f}</span>
+                      <em>{stage.latency_ms:.1f} ms</em>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                st.progress(stage.confidence)
+
+
+def _render_method_comparison(state: WorkbenchState) -> None:
+    with st.expander("Method comparison", expanded=True):
+        tabs = st.tabs(["BM25", "Dense", "Fusion", "Reranked"])
+        result_groups = [
+            state.retrieval.bm25_results,
+            state.retrieval.dense_results,
+            state.retrieval.fusion_results,
+            state.retrieval.reranked_results,
+        ]
+        diagnostics = {item.method: item for item in state.diagnostics}
+        methods = ["bm25", "dense", "fusion", "reranked"]
+        for tab, method, results in zip(tabs, methods, result_groups):
+            with tab:
+                diagnostic = diagnostics.get(method)
+                if diagnostic:
+                    st.markdown(
+                        f"**{method.upper()}** | {diagnostic.confidence_label} | "
+                        f"{diagnostic.result_count} results"
+                    )
+                    st.progress(diagnostic.confidence)
+                    st.caption(diagnostic.recommendation)
+                _render_rank_cards(results)
+                with st.expander("Raw rows", expanded=False):
+                    st.dataframe(_results_to_frame(results), use_container_width=True, hide_index=True)
+
+
+def _render_rank_cards(results: list[RetrievalResult]) -> None:
+    if not results:
+        st.info("No candidates returned.")
+        return
+    for result in results[:5]:
+        confidence = _score_to_confidence(float(result.score))
+        st.markdown(
+            f"""
+            <div class="rank-card">
+              <b>#{result.rank} | {_escape_preview(result.chunk.source_file)} p.{result.chunk.page}</b>
+              <span>{_escape_preview(result.chunk_id)}</span>
+              <span>{_escape_preview(_chunk_preview(result.chunk, max_chars=120))}</span>
+              <em>score {result.score:.3f}</em>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.progress(confidence)
+
+
+def _render_integrated_evaluation_metrics() -> None:
+    with st.expander("Evaluation metrics", expanded=False):
+        reports = _load_evaluation_reports_cached()
+        summary = _summarize_metrics(reports.metrics)
+        latency_summary = _summarize_latency(reports.latency)
+        best_method = _best_method(summary)
+        if best_method:
+            st.success(
+                f"Best NDCG@5: {best_method['method']} "
+                f"({float(best_method['ndcg@5']):.3f})"
+            )
+        _render_metric_bars(summary, ["recall@1", "recall@3", "recall@5"])
+        _render_metric_bars(summary, ["mrr@5", "ndcg@5"])
+        _render_latency_bars(latency_summary)
+        with st.expander("Error/debug cases", expanded=False):
+            st.markdown(reports.error_cases_markdown)
 
 
 def _render_empty_chat_state() -> None:
@@ -446,8 +651,9 @@ def _render_evaluation_dashboard() -> None:
     if st.button("Run local evaluation", type="primary"):
         with st.spinner("Running local retrieval evaluation..."):
             reports = load_or_create_evaluation_reports()
+            _load_evaluation_reports_cached.clear()
     else:
-        reports = load_or_create_evaluation_reports()
+        reports = _load_evaluation_reports_cached()
 
     summary = _summarize_metrics(reports.metrics)
     latency_summary = _summarize_latency(reports.latency)
@@ -497,10 +703,18 @@ def _results_to_frame(results: list[RetrievalResult]) -> list[dict[str, object]]
                 "preview": _chunk_preview(result.chunk, max_chars=160),
                 "image_path": metadata.image_path or "",
                 "caption": metadata.caption or "",
-                "bbox": metadata.bbox or "",
+                "bbox": _format_bbox(metadata.bbox),
             }
         )
     return rows
+
+
+def _format_bbox(bbox: object) -> str:
+    if not bbox:
+        return ""
+    if isinstance(bbox, (list, tuple)):
+        return ", ".join(str(value) for value in bbox)
+    return str(bbox)
 
 
 def _diagnostics_to_rows(
@@ -607,6 +821,12 @@ def _render_latency_bars(rows: list[dict[str, object]]) -> None:
         )
 
 
+def _score_to_confidence(score: float) -> float:
+    if score <= 0:
+        return 0.0
+    return round(min(1.0, score / (score + 1.0)), 3)
+
+
 def _status_class(state: str) -> str:
     if state in {"siliconflow", "mock"}:
         return "status-ok"
@@ -649,7 +869,7 @@ def _inject_style() -> None:
         }
         .block-container {
           padding-top: 1.4rem;
-          max-width: 1360px;
+          max-width: 1680px;
         }
         .topline {
           border-bottom: 2px solid var(--graphite);
@@ -804,6 +1024,69 @@ def _inject_style() -> None:
           margin-top: .25rem;
           line-height: 1.45;
         }
+
+        .chat-message {
+          display: flex;
+          align-items: flex-start;
+          gap: .75rem;
+          margin: .75rem 0;
+        }
+        .message-avatar {
+          width: 2.15rem;
+          height: 2.15rem;
+          border-radius: 50%;
+          background: var(--graphite);
+          color: var(--paper);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: .75rem;
+          font-weight: 900;
+          flex: 0 0 auto;
+        }
+        .message-body {
+          flex: 1;
+          min-width: 0;
+        }
+        .active-evidence {
+          background: rgba(183,121,31,.18);
+          border: 1px solid rgba(183,121,31,.34);
+          color: var(--amber);
+          font-weight: 900;
+          padding: .35rem .5rem;
+          margin-bottom: .5rem;
+        }
+        .evidence-active {
+          border-left-color: var(--amber) !important;
+          background: rgba(183,121,31,.12) !important;
+        }
+        .flow-card,
+        .rank-card {
+          border: 1px solid var(--line);
+          background: rgba(255,255,255,.62);
+          padding: .65rem .7rem;
+          margin: .4rem 0;
+        }
+        .flow-card b, .flow-card span, .flow-card em,
+        .rank-card b, .rank-card span, .rank-card em {
+          display: block;
+        }
+        .flow-card b {
+          color: var(--cyan);
+        }
+        .flow-card span, .rank-card span {
+          color: var(--muted);
+          font-size: .78rem;
+          overflow-wrap: anywhere;
+          margin-top: .18rem;
+        }
+        .flow-card em, .rank-card em {
+          color: var(--amber);
+          font-style: normal;
+          font-weight: 900;
+          margin-top: .25rem;
+          font-size: .78rem;
+        }
         .metric-line {
           display: grid;
           grid-template-columns: 8.5rem 1fr 4.2rem;
@@ -824,12 +1107,11 @@ def _inject_style() -> None:
         .latency-fill {
           background: linear-gradient(90deg, var(--amber), var(--red));
         }
-        div[data-testid="stSidebar"] {
-          background: #222a2e;
-          color: var(--paper);
+        section[data-testid="stSidebar"] {
+          display: none;
         }
-        div[data-testid="stSidebar"] * {
-          color: inherit;
+        div[data-testid="stSidebarCollapsedControl"] {
+          display: none;
         }
         </style>
         """,

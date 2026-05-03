@@ -253,3 +253,26 @@ Accepted upload suffixes:
 ```
 
 Unsupported files are reported as upload failures and must not crash the app.
+
+
+## M7-patch5 internal query response contract
+
+This remains an internal Python app-service contract used by Streamlit, not an
+external HTTP API. The response shape supports citation-to-evidence interaction
+inside the single-page RAG workbench.
+
+`WorkbenchState` includes:
+
+* `answer`: grounded answer response with citation markers and optional
+  `citation.evidence_id`;
+* `final_evidence`: stable `E1`, `E2`, `E3` evidence rows derived from top
+  reranked chunks selected for answer generation;
+* `retrieval_trace`: stage summaries for BM25, Dense, Fusion, Reranker and
+  Final Evidence;
+* `retrieval`: full BM25/Dense/Fusion/Reranked result groups;
+* `timing_ms`: phase timings for retrieval, generation and UI diagnostics;
+* `scope`: corpus name, chunk count, source count and document count.
+
+Streamlit citation buttons store `active_evidence_id` in session state. The
+right-side Evidence Intelligence panel uses that value to move, expand and
+highlight the matching evidence card.

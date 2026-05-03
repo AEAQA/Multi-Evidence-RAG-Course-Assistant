@@ -124,3 +124,16 @@ Local upload is needed for a credible RAG study assistant demo, but private
 course files must not enter git. Uploaded files and the corpus registry are kept
 under `data/processed/`, which is ignored. The registry stores metadata only and
 chunks are rebuilt from local files when the corpus is loaded.
+
+
+## Decision 018: Use Streamlit session-state highlighting for citations
+
+Reason:
+
+Streamlit does not provide a robust native pattern for inline citation anchors
+that scroll and expand arbitrary right-panel elements without custom JavaScript.
+M7-patch5 therefore assigns stable evidence IDs such as `E1`, `E2` and `E3`,
+shows citation buttons below the answer, and stores the selected ID in
+`st.session_state`. The Evidence Intelligence panel then moves, expands and
+highlights the matching evidence card while keeping the MVP frontend simple,
+testable and framework-stable.

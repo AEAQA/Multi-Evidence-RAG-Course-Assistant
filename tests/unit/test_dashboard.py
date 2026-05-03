@@ -31,6 +31,9 @@ def test_build_sample_dashboard_state_returns_retrieval_and_answer() -> None:
     assert state.answer.citations
     assert state.answer.evidence_chunks
     assert state.diagnostics
+    assert state.final_evidence
+    assert state.final_evidence[0].evidence_id == "E1"
+    assert state.retrieval_trace
     assert state.timing_ms["total"] >= 0
 
 
@@ -93,6 +96,8 @@ def test_results_to_frame_handles_image_metadata_without_pandas() -> None:
     assert rows[0]["type"] == "image"
     assert rows[0]["image_path"] == "data/processed/images/doc001_p002_img001.png"
     assert rows[0]["caption"] == "A diagram of hybrid retrieval."
+    assert rows[0]["bbox"] == "72.0, 110.0, 172.0, 210.0"
+    assert all(not isinstance(value, list) for row in rows for value in row.values())
 
 
 def test_diagnostics_to_rows_are_plain_dicts() -> None:
@@ -108,3 +113,17 @@ def test_diagnostics_to_rows_are_plain_dicts() -> None:
     assert rows[0]["method"]
     assert rows[0]["confidence"]
     assert rows[0]["recommendation"]
+
+
+def test_score_to_confidence_is_stable() -> None:
+    assert streamlit_app._score_to_confidence(0) == 0.0
+    assert 0 < streamlit_app._score_to_confidence(1.0) <= 1.0
+
+
+def test_method_comparison_result_groups_are_not_empty_for_sample_query() -> None:
+    state = build_sample_dashboard_state("What is overfitting?", top_k=3)
+
+    assert len(state.retrieval.bm25_results) == 3
+    assert len(state.retrieval.dense_results) == 3
+    assert len(state.retrieval.fusion_results) == 3
+    assert len(state.retrieval.reranked_results) == 3

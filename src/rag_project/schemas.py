@@ -47,6 +47,29 @@ class Citation(BaseModel):
     chunk_id: str
     source_file: str
     page: int
+    evidence_id: str | None = None
+
+
+class EvidenceReference(BaseModel):
+    evidence_id: str
+    chunk_id: str
+    doc_id: str
+    source_file: str
+    page: int
+    type: ChunkType
+    method: str
+    score: float
+    confidence: float
+    preview: str
+    chunk: Chunk
+
+
+class RetrievalTraceStage(BaseModel):
+    stage: str
+    result_count: int
+    top_score: float
+    latency_ms: float
+    confidence: float
 
 
 class AnswerResponse(BaseModel):

@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import fitz
+import pytest
 
+import rag_project.app_services.corpus_service as corpus_service
 from rag_project.app_services.corpus_service import (
     CorpusSelection,
     SAMPLE_QUESTIONS,
@@ -11,6 +13,7 @@ from rag_project.app_services.corpus_service import (
     delete_uploaded_document,
     ingest_uploaded_files,
     load_corpus_bundle,
+    load_document_registry,
     load_sample_corpus,
     load_uploaded_corpus,
 )
@@ -75,6 +78,8 @@ def test_ingest_uploaded_txt_creates_chunks_and_registry_record(tmp_path: Path) 
     assert record.chunk_count == 1
     assert record.type_counts["text"] == 1
     assert Path(record.stored_path).exists()
+    assert record.chunk_cache_path is not None
+    assert Path(record.chunk_cache_path).exists()
 
     bundle = load_uploaded_corpus(registry_path=tmp_path / "corpus_registry.json")
     assert bundle.summary.chunk_count == 1
@@ -99,6 +104,8 @@ def test_ingest_uploaded_markdown_creates_chunks_and_registry_record(tmp_path: P
     assert result.failed == []
     assert result.uploaded[0].filename == "lecture.md"
     assert result.uploaded[0].type_counts["text"] == 1
+    assert result.uploaded[0].chunk_cache_path is not None
+    assert Path(result.uploaded[0].chunk_cache_path).exists()
 
     bundle = load_uploaded_corpus(registry_path=tmp_path / "corpus_registry.json")
     assert bundle.chunks[0].source_file == "lecture.md"
@@ -122,6 +129,8 @@ def test_ingest_uploaded_text_pdf_creates_retrievable_chunks(tmp_path: Path) -> 
     assert len(result.uploaded) == 1
     assert result.failed == []
     assert result.uploaded[0].type_counts["text"] >= 1
+    assert result.uploaded[0].chunk_cache_path is not None
+    assert Path(result.uploaded[0].chunk_cache_path).exists()
 
     bundle = load_uploaded_corpus(
         registry_path=tmp_path / "corpus_registry.json",
@@ -158,11 +167,15 @@ def test_delete_uploaded_document_removes_registry_record(tmp_path: Path) -> Non
     )
     record = result.uploaded[0]
 
+    cache_path = Path(record.chunk_cache_path or "")
+    assert cache_path.exists()
+
     assert delete_uploaded_document(
         record.doc_id,
         registry_path=tmp_path / "corpus_registry.json",
     )
 
+    assert not cache_path.exists()
     bundle = load_uploaded_corpus(registry_path=tmp_path / "corpus_registry.json")
     assert bundle.documents == []
     assert bundle.chunks == []
@@ -252,3 +265,68 @@ def test_combined_scope_with_selection_keeps_sample_and_selected_uploaded(
     assert any(chunk.doc_id == selected_doc_id for chunk in bundle.chunks)
     assert not any(chunk.source_file == "first.txt" for chunk in bundle.chunks)
     assert any(chunk.source_file != "second.txt" for chunk in bundle.chunks)
+
+
+def test_load_document_registry_does_not_load_chunks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ingest_uploaded_files(
+        [FakeUpload("notes.txt", b"Registry metadata should be cheap to load.")],
+        upload_dir=tmp_path / "uploads",
+        registry_path=tmp_path / "corpus_registry.json",
+    )
+
+    def fail_loader(*args, **kwargs):
+        raise AssertionError("raw chunk loader should not be called for metadata")
+
+    monkeypatch.setattr(corpus_service, "_load_chunks_for_record", fail_loader)
+
+    records = load_document_registry(registry_path=tmp_path / "corpus_registry.json")
+
+    assert len(records) == 1
+    assert records[0].filename == "notes.txt"
+
+
+def test_load_uploaded_corpus_uses_chunk_cache_without_reingestion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = ingest_uploaded_files(
+        [FakeUpload("notes.txt", b"Cached chunks prevent repeated ingestion on rerun.")],
+        upload_dir=tmp_path / "uploads",
+        registry_path=tmp_path / "corpus_registry.json",
+    )
+
+    def fail_loader(*args, **kwargs):
+        raise AssertionError("raw chunk loader should not be called when cache exists")
+
+    monkeypatch.setattr(corpus_service, "_load_chunks_for_record", fail_loader)
+
+    bundle = load_uploaded_corpus(registry_path=tmp_path / "corpus_registry.json")
+
+    assert bundle.chunks
+    assert bundle.chunks[0].doc_id == result.uploaded[0].doc_id
+    assert "Cached chunks" in bundle.chunks[0].text
+
+
+def test_old_registry_without_cache_lazily_creates_chunk_cache(tmp_path: Path) -> None:
+    stored = tmp_path / "uploads" / "legacy_notes.txt"
+    stored.parent.mkdir(parents=True, exist_ok=True)
+    stored.write_text("Legacy registry entries should be upgraded once.", encoding="utf-8")
+    registry_path = tmp_path / "corpus_registry.json"
+    registry_path.write_text(
+        '{"legacydoc": {"doc_id": "legacydoc", "filename": "legacy_notes.txt", '
+        '"stored_path": "' + str(stored).replace('\\', '/') + '", '
+        '"chunk_count": 1, "type_counts": {"text": 1}, '
+        '"created_at": "2026-05-03T00:00:00+00:00"}}',
+        encoding="utf-8",
+    )
+
+    bundle = load_uploaded_corpus(
+        registry_path=registry_path,
+        chunk_cache_dir=tmp_path / "chunks",
+    )
+    records = load_document_registry(registry_path=registry_path)
+
+    assert bundle.chunks
+    assert records[0].chunk_cache_path is not None
+    assert Path(records[0].chunk_cache_path).exists()

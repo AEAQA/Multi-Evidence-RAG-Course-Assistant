@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from time import perf_counter
 
 from pydantic import BaseModel, Field
@@ -15,8 +17,17 @@ from rag_project.app_services.provider_status import ProviderStatus, build_provi
 from rag_project.config import AppConfig, load_config
 from rag_project.generation.answer_generator import AnswerGenerator
 from rag_project.providers import create_llm_client, create_reranker_client
+from rag_project.retrieval.reranker import RerankerClient
 from rag_project.retrieval.pipeline import RetrievalPipeline
-from rag_project.schemas import AnswerResponse, Chunk, RetrievalPipelineOutput, RetrievalResult
+from rag_project.schemas import (
+    AnswerResponse,
+    Chunk,
+    Citation,
+    EvidenceReference,
+    RetrievalPipelineOutput,
+    RetrievalResult,
+    RetrievalTraceStage,
+)
 
 
 class MethodDiagnostic(BaseModel):
@@ -43,6 +54,9 @@ class WorkbenchState(BaseModel):
     corpus_summary: CorpusSummary | None = None
     corpus_warnings: list[str] = Field(default_factory=list)
     final_evidence_results: list[RetrievalResult] = Field(default_factory=list)
+    final_evidence: list[EvidenceReference] = Field(default_factory=list)
+    retrieval_trace: list[RetrievalTraceStage] = Field(default_factory=list)
+    scope: dict[str, object] = Field(default_factory=dict)
 
 
 class QueryService:
@@ -53,9 +67,11 @@ class QueryService:
         *,
         config: AppConfig | None = None,
         chunks: list[Chunk] | None = None,
+        retrieval_pipeline: RetrievalPipeline | None = None,
     ) -> None:
         self.config = config or load_config()
         self.chunks = load_sample_corpus() if chunks is None else list(chunks)
+        self.retrieval_pipeline = retrieval_pipeline
 
     def run(self, query: str, *, top_k: int = 5) -> WorkbenchState:
         """Run the full workbench query path with provider fallback clients."""
@@ -64,6 +80,7 @@ class QueryService:
             chunks=self.chunks,
             config=self.config,
             top_k=top_k,
+            retrieval_pipeline=self.retrieval_pipeline,
         )
 
 
@@ -73,6 +90,7 @@ def run_query(
     *,
     config: AppConfig | None = None,
     top_k: int = 5,
+    retrieval_pipeline: RetrievalPipeline | None = None,
 ) -> WorkbenchState:
     """Run a query against an explicit corpus bundle."""
     runtime_config = config or load_config()
@@ -83,6 +101,7 @@ def run_query(
         top_k=top_k,
         corpus_summary=corpus_bundle.summary,
         corpus_warnings=corpus_bundle.warnings,
+        retrieval_pipeline=retrieval_pipeline,
     )
 
 
@@ -94,44 +113,184 @@ def _run_query(
     top_k: int,
     corpus_summary: CorpusSummary | None = None,
     corpus_warnings: list[str] | None = None,
+    retrieval_pipeline: RetrievalPipeline | None = None,
 ) -> WorkbenchState:
     normalized_query = query.strip()
     bounded_top_k = max(1, min(top_k, 10))
     provider_status = build_provider_status(config)
 
     started = perf_counter()
-    retrieval = RetrievalPipeline(
+    pipeline_started = perf_counter()
+    pipeline = retrieval_pipeline or build_retrieval_pipeline(
         chunks,
         reranker=create_reranker_client(config),
-    ).search(normalized_query, top_k=bounded_top_k)
+    )
+    pipeline_finished = perf_counter()
+
+    retrieval, retrieval_timings = pipeline.search_with_timing(
+        normalized_query, top_k=bounded_top_k
+    )
     retrieval_finished = perf_counter()
 
+    generation_started = perf_counter()
     answer = AnswerGenerator(
         llm_client=create_llm_client(config),
         max_evidence=bounded_top_k,
     ).generate(normalized_query, retrieval.reranked_results)
     finished = perf_counter()
 
+    timing_ms = {
+        **retrieval_timings,
+        "pipeline_build": _elapsed_ms(pipeline_started, pipeline_finished),
+        "retrieval_total": _elapsed_ms(pipeline_finished, retrieval_finished),
+        "generation": _elapsed_ms(generation_started, finished),
+        "total": _elapsed_ms(started, finished),
+    }
+    final_evidence_results = _final_evidence_results(
+        retrieval.reranked_results,
+        answer.evidence_chunks,
+    )
+    final_evidence = _build_final_evidence(final_evidence_results)
+    answer = _attach_evidence_ids(answer, final_evidence)
+    retrieval_trace = _build_retrieval_trace(retrieval, timing_ms, final_evidence)
     diagnostics = build_method_diagnostics(retrieval)
     return WorkbenchState(
         query=normalized_query,
         retrieval=retrieval,
         answer=answer,
         provider_status=provider_status,
-        timing_ms={
-            "retrieval": _elapsed_ms(started, retrieval_finished),
-            "generation": _elapsed_ms(retrieval_finished, finished),
-            "total": _elapsed_ms(started, finished),
-        },
+        timing_ms=timing_ms,
         diagnostics=diagnostics,
         suggestions=_build_suggestions(answer, diagnostics),
         corpus_summary=corpus_summary,
         corpus_warnings=list(corpus_warnings or []),
-        final_evidence_results=_final_evidence_results(
-            retrieval.reranked_results,
-            answer.evidence_chunks,
-        ),
+        final_evidence_results=final_evidence_results,
+        final_evidence=final_evidence,
+        retrieval_trace=retrieval_trace,
+        scope=_build_scope(corpus_summary, chunks),
     )
+
+
+def build_retrieval_pipeline(
+    chunks: list[Chunk], *, reranker: RerankerClient | None = None
+) -> RetrievalPipeline:
+    """Build retrieval indexes for a stable chunk list."""
+    return RetrievalPipeline(chunks, reranker=reranker)
+
+
+def build_corpus_signature(chunks: list[Chunk]) -> str:
+    """Return a stable signature for Streamlit retrieval-resource caching."""
+    payload = [
+        {
+            "chunk_id": chunk.chunk_id,
+            "doc_id": chunk.doc_id,
+            "source_file": chunk.source_file,
+            "page": chunk.page,
+            "type": chunk.type,
+            "text_len": len(chunk.text),
+        }
+        for chunk in chunks
+    ]
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _build_final_evidence(results: list[RetrievalResult]) -> list[EvidenceReference]:
+    evidence: list[EvidenceReference] = []
+    for index, result in enumerate(results, start=1):
+        chunk = result.chunk
+        evidence.append(
+            EvidenceReference(
+                evidence_id=f"E{index}",
+                chunk_id=chunk.chunk_id,
+                doc_id=chunk.doc_id,
+                source_file=chunk.source_file,
+                page=chunk.page,
+                type=chunk.type,
+                method=result.method,
+                score=round(float(result.score), 4),
+                confidence=_confidence_from_score(float(result.score)),
+                preview=_chunk_preview(chunk),
+                chunk=chunk,
+            )
+        )
+    return evidence
+
+
+def _attach_evidence_ids(
+    answer: AnswerResponse, evidence: list[EvidenceReference]
+) -> AnswerResponse:
+    if not evidence:
+        return answer
+    evidence_by_chunk = {item.chunk_id: item.evidence_id for item in evidence}
+    citations = [
+        Citation(
+            chunk_id=citation.chunk_id,
+            source_file=citation.source_file,
+            page=citation.page,
+            evidence_id=evidence_by_chunk.get(citation.chunk_id),
+        )
+        for citation in answer.citations
+    ]
+    markers = [f"[{item.evidence_id}]" for item in evidence]
+    answer_text = answer.answer
+    if not answer.insufficient_evidence and not any(marker in answer_text for marker in markers):
+        answer_text = f"{answer_text}\n\nReferences: {' '.join(markers)}"
+    return answer.model_copy(update={"answer": answer_text, "citations": citations})
+
+
+def _build_retrieval_trace(
+    retrieval: RetrievalPipelineOutput,
+    timing_ms: dict[str, float],
+    final_evidence: list[EvidenceReference],
+) -> list[RetrievalTraceStage]:
+    stages = [
+        ("BM25", retrieval.bm25_results, "bm25"),
+        ("Dense", retrieval.dense_results, "dense"),
+        ("Fusion", retrieval.fusion_results, "fusion"),
+        ("Reranker", retrieval.reranked_results, "reranker"),
+    ]
+    trace = [
+        RetrievalTraceStage(
+            stage=stage,
+            result_count=len(results),
+            top_score=round(float(results[0].score), 4) if results else 0.0,
+            latency_ms=float(timing_ms.get(timing_key, 0.0)),
+            confidence=_confidence_from_score(float(results[0].score)) if results else 0.0,
+        )
+        for stage, results, timing_key in stages
+    ]
+    trace.append(
+        RetrievalTraceStage(
+            stage="Final Evidence",
+            result_count=len(final_evidence),
+            top_score=final_evidence[0].score if final_evidence else 0.0,
+            latency_ms=float(timing_ms.get("generation", 0.0)),
+            confidence=final_evidence[0].confidence if final_evidence else 0.0,
+        )
+    )
+    return trace
+
+
+def _build_scope(
+    corpus_summary: CorpusSummary | None, chunks: list[Chunk]
+) -> dict[str, object]:
+    return {
+        "corpus_name": corpus_summary.corpus_name if corpus_summary else "Current corpus",
+        "chunk_count": len(chunks),
+        "source_count": len({chunk.source_file for chunk in chunks}),
+        "doc_count": len({chunk.doc_id for chunk in chunks}),
+    }
+
+
+def _chunk_preview(chunk: Chunk, *, max_chars: int = 220) -> str:
+    if chunk.metadata.caption:
+        text = chunk.metadata.caption
+    elif chunk.metadata.table_html:
+        text = chunk.text or chunk.metadata.table_html
+    else:
+        text = chunk.text
+    return text[:max_chars]
 
 
 def build_method_diagnostics(

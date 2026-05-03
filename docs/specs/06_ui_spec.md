@@ -251,3 +251,54 @@ Right panel:
 * show BM25 Top-k, Dense Retrieval Top-k, Hybrid Fusion candidates, and Reranked Top-k in method tabs;
 * show insufficient-evidence warning when final evidence is weak or absent;
 * optionally show latency and compact method comparison summary.
+
+
+## M7-patch5 Single-Page Evidence Intelligence Workbench
+
+The MVP frontend is a single-page Streamlit RAG workbench inspired by the
+CourseMate three-panel interaction pattern. CourseMate is a visual and
+interaction reference only; the project remains Streamlit and does not migrate
+to React, Gradio, FastAPI, Docker or a new frontend framework in this patch.
+
+Required layout:
+
+```text
+Left: Knowledge Base / Materials
+Center: Chat
+Right: Evidence Intelligence
+```
+
+Left panel behavior:
+
+* uploads `.pdf`, `.txt`, `.md`, and `.markdown` materials;
+* lists uploaded documents with filename, chunk count, type summary and status;
+* controls retrieval scope through all-documents or selected-documents behavior;
+* selection defines the corpus scope, while retrieval remains chunk-level.
+
+Center panel behavior:
+
+* remains clean and chat-focused;
+* shows the assistant answer as the primary conversational output;
+* answer text includes stable citation markers such as `[E1]`, `[E2]`, `[E3]`;
+* citation buttons such as `View E1` update Streamlit session state instead of
+  relying on custom JavaScript anchors;
+* clicking a citation button highlights and expands the matching evidence card
+  in the right panel.
+
+Right panel behavior:
+
+* is named `Evidence Intelligence`;
+* shows cited evidence first, labeled as `E1`, `E2`, `E3`;
+* each evidence item shows source file, page, chunk id, doc id, type, method,
+  score, confidence bar, preview and image/table metadata when available;
+* shows retrieval flow cards for `BM25 -> Dense -> Fusion -> Reranker -> Final Evidence`;
+* each retrieval flow card shows top-k count, best score, latency and a
+  confidence bar;
+* method comparison uses tabs with rank cards, score bars, latency/diagnostic
+  badges and an optional raw-row expander;
+* Recall@k, MRR, NDCG, latency and error cases are integrated into a collapsed
+  `Evaluation metrics` section, not a dominant analytics page.
+
+The separate Evaluation Dashboard implementation may remain as a legacy helper,
+but the primary user experience should route evaluation and debug details
+through the right-side Evidence Intelligence panel.

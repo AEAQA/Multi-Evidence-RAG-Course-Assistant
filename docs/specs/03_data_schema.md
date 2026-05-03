@@ -267,3 +267,64 @@ Failure fallback:
 * table detection failure returns an empty table chunk list;
 * text extraction failure does not block image/table chunks;
 * if text, image, and table extraction all produce no chunks, `load_pdf_chunks()` raises `ValueError`.
+
+
+## Evidence intelligence query output contract
+
+The Streamlit app-service query response includes stable evidence references
+for product-like citation interaction. These fields extend the existing answer
+and retrieval objects without changing retrieval algorithms.
+
+Citation objects may include an optional `evidence_id`:
+
+```json
+{
+  "evidence_id": "E1",
+  "chunk_id": "doc001_page003_text_0001",
+  "source_file": "lecture_1.pdf",
+  "page": 3
+}
+```
+
+Final evidence rows use:
+
+```json
+{
+  "evidence_id": "E1",
+  "chunk_id": "doc001_page003_text_0001",
+  "doc_id": "doc001",
+  "source_file": "lecture_1.pdf",
+  "page": 3,
+  "type": "text",
+  "method": "reranked",
+  "score": 0.87,
+  "confidence": 0.465,
+  "preview": "Short text preview, caption, or table summary.",
+  "chunk": {}
+}
+```
+
+Retrieval trace stages use:
+
+```json
+{
+  "stage": "BM25",
+  "result_count": 5,
+  "top_score": 2.4,
+  "latency_ms": 3.2,
+  "confidence": 0.706
+}
+```
+
+Required stages are:
+
+```text
+BM25
+Dense
+Fusion
+Reranker
+Final Evidence
+```
+
+The query response also includes a lightweight `scope` object with corpus name,
+chunk count, source count and document count.

@@ -11,6 +11,8 @@ Milestone 7: Optional SiliconFlow API-enhanced mode complete
 M7-patch1: Streamlit Evidence Workbench complete
 M7-patch2: Chat-centered RAG Study Chat with local document upload complete
 M7-patch3: Three-panel RAG workbench with material scope refinement complete
+M7-patch4: Streamlit performance stabilization complete
+M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 ```
 
 ## What works now
@@ -77,7 +79,22 @@ M7-patch3: Three-panel RAG workbench with material scope refinement complete
 * If no uploaded documents are selected, uploaded retrieval searches all uploaded documents by default.
 * If uploaded documents are selected, retrieval is restricted to chunks from those selected `doc_id`s.
 * Final answer evidence is represented by scored reranked `RetrievalResult` rows for the right evidence panel.
-* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 78 tests.
+* Uploaded documents now write processed chunk caches under ignored `data/processed/chunks/` during upload ingestion.
+* Normal Streamlit reruns load uploaded document metadata from the registry without loading chunks.
+* Uploaded corpus loading reads cached chunks and only falls back to raw ingestion for legacy registry records without cache metadata.
+* Streamlit caches provider/config state, uploaded metadata, corpus bundles, evaluation reports, and retrieval pipelines with `st.cache_resource` / `st.cache_data`.
+* Retrieval pipelines can be reused by corpus signature instead of rebuilding BM25 and fake dense indexes for every query.
+* Query timing now reports BM25, dense, fusion, reranker, retrieval, pipeline build, generation, and total timings.
+* The right-panel debug view includes rerun, document metadata loading, chunk loading, upload ingestion, and corpus signature diagnostics.
+* Streamlit now presents the main experience as a single-page three-panel RAG workbench instead of a separate analytics-dominant dashboard.
+* The center chat answer includes stable evidence markers such as `[E1]`, `[E2]`, and `[E3]`.
+* Citation buttons update Streamlit session state so the right Evidence Intelligence panel can highlight the selected evidence card.
+* Query output now includes `final_evidence`, `retrieval_trace`, and `scope` fields for product-like evidence interaction.
+* Evidence Intelligence integrates cited evidence, retrieval flow cards, method comparison tabs, evaluation metrics and debug details in the right panel.
+* Streamlit dataframe rows now serialize image/table `bbox` metadata as strings to avoid PyArrow mixed list/scalar conversion errors.
+* The legacy Streamlit sidebar is hidden so the single-page workbench uses the full browser width.
+* Method comparison output is verified to include BM25, Dense, Fusion and Reranked results for the sample query path.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes with 85 tests.
 
 ## What is missing
 
@@ -109,8 +126,9 @@ python scripts/dev.py api-smoke
 * Real ASR is not implemented in M7. `ASR_PROVIDER` should remain `mock` until a SiliconFlow ASR client and browser audio flow are added.
 * `VISION_PROVIDER` must be a provider name such as `mock` or `siliconflow`; put the model id in `VISION_MODEL`.
 * M7-patch1 method confidence labels are UI diagnostics, not statistically calibrated probabilities.
-* Uploaded files and the local corpus registry live under `data/processed/`, which is ignored by git.
+* Uploaded files, processed image assets, registry metadata, and chunk caches live under `data/processed/`, which is ignored by git.
 * M7-patch2 keeps FastAPI/React deferred; Streamlit remains the MVP UI.
+* `python -m pytest` may hit Windows temp-directory `PermissionError`; use a workspace-local `--basetemp` path if needed.
 
 ## Next step
 
