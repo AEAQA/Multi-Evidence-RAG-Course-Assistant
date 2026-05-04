@@ -16,6 +16,10 @@ M7-patch5: Single-page Evidence Intelligence workbench refinement complete
 Stage 1: FastAPI backend layer complete
 Stage 2: Prompt-driven grounded answer contract complete
 Stage 3: React three-panel product UI complete
+Stage 4: Per-query method analysis complete
+Stage 5A: CourseMate-style product polish complete
+Stage 5B: Product experience refinement complete
+Stage 5C: Product UI/UX polish complete
 ```
 
 ## What works now
@@ -168,6 +172,16 @@ Stage 3: React three-panel product UI complete
   LLM synthesis from mock, fallback and no-evidence generation.
 * The PDF source endpoint returns inline PDF responses and React opens source
   pages in a new tab without a download attribute.
+* The welcome empty state no longer shows starter CTA buttons that ask
+  template-like app/project questions.
+* Query planning now routes non-material questions before retrieval:
+  `general_question`, `app_help` and `out_of_scope` skip RAG retrieval and hide
+  Evidence Intelligence.
+* `/api/query` includes `answer_mode` and `evidence_panel_mode` so React can
+  visually separate grounded answers from general/help/refusal responses.
+* Optional LLM planner output is stabilized by the deterministic router before
+  retrieval gating, so material-like study questions remain RAG queries even if
+  the planner model mislabels them as general.
 * Answer text cleaned of hash patterns, pipe characters, internal IDs and OCR noise.
 * CitationText shows unresolved citation warnings when markers do not map to evidence.
 * RetrievalFlow shows stage contribution counts, Final badge, and relative score within method labels.
@@ -189,6 +203,19 @@ Stage 3: React three-panel product UI complete
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after intent-aware query support.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 5B table evidence filtering and rewrites retrieval metrics, latency metrics and error cases reports.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 5B.
+* Stage 5C product UI/UX polish is implemented.
+* RetrievalFlow score label changed from "relative score within method" to "Match strength" with hover tooltip explaining cross-method incomparability.
+* RetrievalFlow now displays a human-readable flow summary (e.g. "Evidence was found across 3 of the 4 retrieval stages...") and a collapsible "How to read this" explainer.
+* EvidenceIntelligencePanel Method Comparison section now uses collapsible `<details>` so cited evidence and retrieval flow are the default view; method tabs and rows expand on demand.
+* EvidenceCard removes raw score from user-facing headline; shows only evidence_id, method badge, and support label (supported/partial/low/none).
+* EvidenceCard ScoreBar removed from user-facing area; raw scores and internal IDs remain in Developer details.
+* EvidenceCard "Table summary evidence" badge simplified to "Table summary".
+* Flow cards use standalone `.flow-match-bar` instead of shared `.score-track` to avoid cross-method visual confusion.
+* CSS: added `.collapsible-section`, `.section-summary`, `.method-badge`, `.support-pill`, `.flow-match-bar`, `.flow-match-fill`, `.flow-summary`, `.flow-explainer`, `.open-page-link`.
+* CSS: added `prefers-reduced-motion` media query to disable transitions and animations.
+* 30 focused backend regression tests pass after Stage 5C.
+* Frontend production build passes after Stage 5C.
+* React mocked frontend tests pass after Stage 5C.
 
 ## What is missing
 

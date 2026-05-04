@@ -337,8 +337,8 @@ Implementation status:
   generation latency pressure.
 * Per-query method analysis displays `Generation`, `Retrieval total`,
   `Pipeline build` and individual retrieval stage timings.
-* The welcome state now includes starter research questions and the UI palette
-  is more neutral/minimal.
+* The welcome state uses a clean no-template empty state and the UI palette is
+  more neutral/minimal.
 
 Stage 5B verification note:
 
@@ -367,6 +367,16 @@ Implemented behavior:
 * uploaded PDF evidence exposes `Open page` links through
   `/api/documents/{doc_id}/file#page={page}`;
 * public document payloads do not expose local stored paths.
+
+Stage 6B query routing:
+
+* the planner also routes questions before retrieval;
+* only `material_query` and `multi_intent_material_query` call the RAG
+  retrieval pipeline;
+* `general_question`, `app_help` and `out_of_scope` skip retrieval and return
+  empty citations/final evidence;
+* React hides Evidence Intelligence for no-retrieval answers and labels them as
+  general, app help or no-document-evidence responses.
 
 Verification:
 

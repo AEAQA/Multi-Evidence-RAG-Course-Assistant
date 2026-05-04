@@ -104,6 +104,7 @@ def test_siliconflow_llm_parses_fake_response() -> None:
     def fake_post(url, *, headers, json, timeout):
         assert url.endswith("/chat/completions")
         assert headers["Authorization"] == "Bearer secret-key"
+        assert json["max_tokens"] == 900
         return {
             "choices": [
                 {"message": {"content": "Evidence-grounded API answer."}}

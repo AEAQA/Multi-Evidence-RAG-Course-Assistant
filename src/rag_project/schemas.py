@@ -86,6 +86,7 @@ class AnswerResponse(BaseModel):
     evidence_chunks: list[Chunk] = Field(default_factory=list)
     retrieval_explanation: str = ""
     generation_mode: str = "mock"
+    answer_mode: Literal["grounded", "general", "help", "refusal"] = "grounded"
 
 
 class RerankResult(BaseModel):

@@ -10,7 +10,7 @@ No test should require real API keys.
 
 ```text
 APP_MODE=local
-API_TIMEOUT_SECONDS=30
+API_TIMEOUT_SECONDS=90
 
 OPENAI_API_KEY=xxx
 SILICONFLOW_API_KEY=xxx
@@ -424,7 +424,12 @@ Stage 5B table evidence quality:
 
 Stage 6 intent-aware query planning:
 
-* `/api/query` runs an intent planner before retrieval.
+* `/api/query` runs a query router/planner before retrieval.
+* The router decides `route`, `requires_retrieval`, `answer_mode`,
+  `evidence_panel_mode` and `reason_code`.
+* Only `material_query` and `multi_intent_material_query` call retrieval.
+  `general_question`, `app_help` and `out_of_scope` skip retrieval and return
+  empty `citations`, `final_evidence`, retrieval rows and retrieval trace.
 * Single-intent questions remain a single retrieval unit.
 * Multi-intent questions such as `what is word2vec? and what is transformer?`
   are decomposed into `sub_questions`, each with its own `retrieval_query`,
@@ -446,6 +451,8 @@ Stage 6 intent-aware query planning:
 {
   "query_plan": {
     "original_query": "what is word2vec? and what is transformer?",
+    "route": "multi_intent_material_query",
+    "requires_retrieval": true,
     "is_multi_intent": true,
     "sub_questions": [
       {
@@ -460,7 +467,11 @@ Stage 6 intent-aware query planning:
       }
     ],
     "answer_style": "sectioned",
-    "requires_partial_support_status": true
+    "requires_partial_support_status": true,
+    "retrieval_query": "word2vec transformer definition concept",
+    "answer_mode": "grounded",
+    "evidence_panel_mode": "show",
+    "reason_code": "course_material_related"
   },
   "sub_question_support": [
     {
@@ -473,7 +484,9 @@ Stage 6 intent-aware query planning:
       "insufficient_evidence": false
     }
   ],
-  "support_label": "partially supported"
+  "support_label": "partially supported",
+  "answer_mode": "grounded",
+  "evidence_panel_mode": "show"
 }
 ```
 
@@ -502,6 +515,18 @@ none
 answer. `mock` means local/offline deterministic generation was used.
 `fallback` means a configured provider failed and the mock generator produced
 the answer. `none` is used for no-evidence responses.
+
+`answer.answer_mode` and top-level `answer_mode` distinguish product behavior:
+
+```text
+grounded
+general
+help
+refusal
+```
+
+General/help/refusal answers must not display fake evidence and should be
+clearly labeled as not grounded in uploaded materials.
 
 Test isolation:
 

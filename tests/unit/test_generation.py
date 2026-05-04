@@ -1,7 +1,7 @@
 from rag_project.generation.answer_generator import AnswerGenerator
 from rag_project.generation.llm_client import MockLLMClient
 from rag_project.generation.prompt_builder import build_grounded_prompt
-from rag_project.schemas import Chunk, ChunkMetadata, RetrievalResult
+from rag_project.schemas import AnswerResponse, Chunk, ChunkMetadata, Citation, RetrievalResult
 
 
 def _chunk(index: int, text: str) -> Chunk:
@@ -92,5 +92,44 @@ def test_answer_generator_returns_citations_evidence_and_explanation() -> None:
         result.chunk_id for result in results
     ]
     assert "Top 2 reranked evidence chunks" in response.retrieval_explanation
+
+
+def test_answer_generator_preserves_provider_fallback_explanation() -> None:
+    chunk = Chunk(
+        chunk_id="c1",
+        doc_id="d1",
+        source_file="lecture.txt",
+        page=1,
+        type="text",
+        text="Reranking reorders retrieved candidates.",
+        metadata=ChunkMetadata(),
+    )
+    result = RetrievalResult(
+        chunk_id=chunk.chunk_id,
+        score=0.9,
+        rank=1,
+        method="reranked",
+        chunk=chunk,
+    )
+
+    class FallbackClient:
+        def generate_answer(self, question, evidence_chunks):  # type: ignore[no-untyped-def]
+            del question, evidence_chunks
+            return AnswerResponse(
+                answer="Fallback answer [E1].",
+                citations=[Citation(chunk_id=chunk.chunk_id, source_file=chunk.source_file, page=chunk.page)],
+                evidence_chunks=[chunk],
+                retrieval_explanation="SiliconFlow LLM fallback was used after API failure.",
+                generation_mode="fallback",
+            )
+
+    response = AnswerGenerator(llm_client=FallbackClient(), max_evidence=1).generate(
+        "What does reranking do?",
+        [result],
+    )
+
+    assert response.generation_mode == "fallback"
+    assert "Top 1 reranked evidence chunks" in response.retrieval_explanation
+    assert "fallback was used" in response.retrieval_explanation
     assert "[E1]" in response.answer
     assert "References:" not in response.answer

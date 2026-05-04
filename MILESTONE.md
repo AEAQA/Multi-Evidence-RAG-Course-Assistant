@@ -520,3 +520,23 @@ Delivered:
 * Verified `npm.cmd run build`, full `python scripts/dev.py test` passing 103
   tests, `python scripts/dev.py eval` completing reports, and
   `python -m compileall scripts src tests app` passing.
+
+### Stage 6B: Query Routing and No-Retrieval Modes
+
+Status: complete.
+
+Goal: prevent non-material questions from being presented as evidence-grounded
+RAG answers.
+
+Delivered:
+
+* Removed the three welcome starter buttons that asked template-like product
+  questions.
+* Extended the query planner into a router with `route`, `requires_retrieval`,
+  `answer_mode`, `evidence_panel_mode` and `reason_code`.
+* `material_query` and `multi_intent_material_query` keep the existing RAG
+  retrieval path.
+* `general_question`, `app_help` and `out_of_scope` skip retrieval and return
+  no citations, no final evidence and hidden Evidence Intelligence.
+* React answer badges distinguish grounded answers from general answers, app
+  help and no-document-evidence responses.

@@ -72,6 +72,8 @@ class WorkbenchState(BaseModel):
     query_plan: QueryPlan | None = None
     sub_question_support: list[SubQuestionSupport] = Field(default_factory=list)
     support_label: str = "insufficient evidence"
+    answer_mode: str = "grounded"
+    evidence_panel_mode: str = "show"
 
 
 class QueryService:
@@ -135,6 +137,25 @@ def _run_query(
     provider_status = build_provider_status(config)
 
     started = perf_counter()
+    query_plan = create_intent_planner(config).plan(
+        normalized_query,
+        top_k=bounded_top_k,
+        available_evidence_types=["text", "image", "table_summary"],
+        available_document_count=len({chunk.doc_id for chunk in chunks}),
+    )
+    if not query_plan.requires_retrieval:
+        finished = perf_counter()
+        return _no_retrieval_state(
+            query=normalized_query,
+            query_plan=query_plan,
+            provider_status=provider_status,
+            started=started,
+            finished=finished,
+            corpus_summary=corpus_summary,
+            corpus_warnings=corpus_warnings,
+            chunks=chunks,
+        )
+
     pipeline_started = perf_counter()
     pipeline = retrieval_pipeline or build_retrieval_pipeline(
         chunks,
@@ -142,11 +163,6 @@ def _run_query(
     )
     pipeline_finished = perf_counter()
 
-    query_plan = create_intent_planner(config).plan(
-        normalized_query,
-        top_k=bounded_top_k,
-        available_evidence_types=["text", "image", "table_summary"],
-    )
     if not query_plan.sub_questions:
         query_plan = query_plan.model_copy(
             update={
@@ -246,6 +262,8 @@ def _run_query(
         query_plan=query_plan,
         sub_question_support=sub_question_support,
         support_label=support_label,
+        answer_mode=answer.answer_mode,
+        evidence_panel_mode=query_plan.evidence_panel_mode,
     )
 
 
@@ -271,6 +289,107 @@ def build_corpus_signature(chunks: list[Chunk]) -> str:
     ]
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _no_retrieval_state(
+    *,
+    query: str,
+    query_plan: QueryPlan,
+    provider_status: ProviderStatus,
+    started: float,
+    finished: float,
+    corpus_summary: CorpusSummary | None,
+    corpus_warnings: list[str] | None,
+    chunks: list[Chunk],
+) -> WorkbenchState:
+    answer = _build_no_retrieval_answer(query, query_plan)
+    timing_ms = {
+        "bm25": 0.0,
+        "dense": 0.0,
+        "fusion": 0.0,
+        "reranker": 0.0,
+        "retrieval": 0.0,
+        "pipeline_build": 0.0,
+        "retrieval_total": 0.0,
+        "generation": 0.0,
+        "total": _elapsed_ms(started, finished),
+    }
+    return WorkbenchState(
+        query=query,
+        retrieval=RetrievalPipelineOutput(),
+        answer=answer,
+        provider_status=provider_status,
+        timing_ms=timing_ms,
+        diagnostics=[],
+        suggestions=_no_retrieval_suggestions(query_plan),
+        corpus_summary=corpus_summary,
+        corpus_warnings=list(corpus_warnings or []),
+        final_evidence_results=[],
+        final_evidence=[],
+        retrieval_trace=[],
+        scope=_build_scope(corpus_summary, chunks),
+        query_plan=query_plan,
+        sub_question_support=[],
+        support_label="insufficient evidence",
+        answer_mode=query_plan.answer_mode,
+        evidence_panel_mode=query_plan.evidence_panel_mode,
+    )
+
+
+def _build_no_retrieval_answer(query: str, query_plan: QueryPlan) -> AnswerResponse:
+    if query_plan.answer_mode == "help":
+        text = (
+            "App help: upload PDFs, TXT, MD, or Markdown files with Manage Materials, "
+            "choose Sample, Uploaded, or Combined scope, then ask a question about the "
+            "selected study materials. Grounded answers show inline citations like [E1]; "
+            "click a citation to inspect the matching evidence card. Open page appears "
+            "for registered PDF evidence when a page number is available."
+        )
+    elif query_plan.answer_mode == "refusal":
+        text = (
+            "This assistant is designed for study-material questions. Please ask about "
+            "your uploaded documents, selected course notes, or the retrieval evidence."
+        )
+    else:
+        text = _general_answer_text(query)
+
+    return AnswerResponse(
+        answer=text,
+        citations=[],
+        insufficient_evidence=True,
+        evidence_chunks=[],
+        retrieval_explanation="No document retrieval was used for this answer.",
+        generation_mode="mock",
+        answer_mode=query_plan.answer_mode,
+    )
+
+
+def _general_answer_text(query: str) -> str:
+    lowered = query.lower()
+    if "weather" in lowered or "天气" in lowered:
+        return (
+            "General answer: I cannot check live weather from the local RAG workbench. "
+            "This response is not grounded in uploaded materials."
+        )
+    if "joke" in lowered or "笑话" in lowered:
+        return (
+            "General answer: I can keep the conversation light, but this response is "
+            "not grounded in uploaded materials. Ask about your course notes when you "
+            "want evidence-backed citations."
+        )
+    return (
+        "General answer: this looks like a question outside the selected study "
+        "materials, so no document evidence was used. Ask about uploaded course "
+        "notes to receive grounded citations and retrieval evidence."
+    )
+
+
+def _no_retrieval_suggestions(query_plan: QueryPlan) -> list[str]:
+    if query_plan.answer_mode == "help":
+        return ["Upload materials first, then ask a content question to enable evidence."]
+    if query_plan.answer_mode == "refusal":
+        return ["Try asking about a concept, section, figure, or formula in your study materials."]
+    return ["Ask about uploaded documents or course notes to get a grounded answer with citations."]
 
 
 def _run_planned_retrieval(

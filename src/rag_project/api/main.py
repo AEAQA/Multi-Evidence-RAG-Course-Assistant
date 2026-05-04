@@ -293,6 +293,7 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
             "grounding_status": grounding_status,
             "retrieval_explanation": state.answer.retrieval_explanation,
             "generation_mode": state.answer.generation_mode,
+            "answer_mode": state.answer.answer_mode,
         },
         "citations": [
             _citation_payload(citation, state.final_evidence)
@@ -340,6 +341,8 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
             item.model_dump(mode="json") for item in state.sub_question_support
         ],
         "support_label": state.support_label,
+        "answer_mode": state.answer_mode,
+        "evidence_panel_mode": state.evidence_panel_mode,
     }
 
 

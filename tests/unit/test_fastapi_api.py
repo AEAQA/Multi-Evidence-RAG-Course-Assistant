@@ -176,6 +176,32 @@ def test_multi_intent_query_response_includes_support_status() -> None:
     assert len(payload["sub_question_support"]) == 2
     assert payload["support_label"] in {"supported", "partially supported"}
     assert payload["answer"]["generation_mode"] in {"mock", "llm", "fallback"}
+    assert payload["answer"]["answer_mode"] == "grounded"
+    assert payload["evidence_panel_mode"] == "show"
+
+
+def test_general_question_skips_retrieval_in_api_response() -> None:
+    client = _client(_test_root())
+
+    response = client.post(
+        "/api/query",
+        json={
+            "query": "What is the weather today?",
+            "top_k": 3,
+            "scope": {"mode": "uploaded", "selected_doc_ids": []},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query_plan"]["route"] == "general_question"
+    assert payload["query_plan"]["requires_retrieval"] is False
+    assert payload["answer"]["answer_mode"] == "general"
+    assert payload["answer_mode"] == "general"
+    assert payload["evidence_panel_mode"] == "hide"
+    assert payload["citations"] == []
+    assert payload["final_evidence"] == []
+    assert payload["retrieval"]["reranked"] == []
 
 
 def test_unsupported_upload_is_reported_without_crashing() -> None:

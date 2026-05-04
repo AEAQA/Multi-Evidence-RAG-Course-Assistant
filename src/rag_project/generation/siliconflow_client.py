@@ -22,6 +22,7 @@ class SiliconFlowLLMClient:
         model: str,
         base_url: str = "https://api.siliconflow.cn/v1",
         timeout: float = 30.0,
+        max_tokens: int = 900,
         fallback_client: LLMClient | None = None,
         post_json: PostJson = default_post_json,
     ) -> None:
@@ -29,6 +30,7 @@ class SiliconFlowLLMClient:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_tokens = max_tokens
         self.fallback_client = fallback_client or MockLLMClient()
         self.post_json = post_json
 
@@ -65,6 +67,7 @@ class SiliconFlowLLMClient:
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0,
+                "max_tokens": self.max_tokens,
             }
             data = self.post_json(
                 f"{self.base_url}/chat/completions",

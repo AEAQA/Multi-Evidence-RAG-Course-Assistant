@@ -96,8 +96,8 @@ export function ChatPanel({
             <p className="eyebrow">Ready</p>
             <h2>Ask a question about your study materials.</h2>
             <p>
-              Upload course PDFs or notes, then ask questions. Answers are grounded
-              in retrieved evidence with inline citations.
+              Ask questions about uploaded study materials. Answers are grounded
+              in retrieved evidence.
             </p>
             <p className="subtle">
               Current scope: <strong>{scopeLabel}</strong> -{" "}
@@ -105,17 +105,6 @@ export function ChatPanel({
                 ? `${documents.length} document${documents.length > 1 ? "s" : ""} indexed`
                 : "No documents uploaded. Use sample corpus or upload materials."}
             </p>
-            <div className="starter-grid" aria-label="Suggested questions">
-              <button type="button" onClick={() => onSubmit("Compare BM25, Dense retrieval, Fusion, and Reranker for this topic.")}>
-                Compare retrieval methods
-              </button>
-              <button type="button" onClick={() => onSubmit("What evidence supports the key concept in my materials?")}>
-                Find grounded evidence
-              </button>
-              <button type="button" onClick={() => onSubmit("Where do the uploaded notes discuss evaluation metrics?")}>
-                Inspect evaluation metrics
-              </button>
-            </div>
           </div>
         ) : (
           messages.map((message) => (
@@ -202,9 +191,16 @@ function AssistantAnswer({
         />
       </p>
       <div className="answer-meta">
-        <span>{response.support_label ?? response.answer.grounding_status}</span>
+        <span>{answerModeLabel(response)}</span>
+        {isGroundedResponse(response) && response.support_label ? (
+          <span>{response.support_label}</span>
+        ) : null}
         {response.answer.generation_mode ? <span>{response.answer.generation_mode}</span> : null}
-        <span>{response.final_evidence.length} evidence cards</span>
+        {shouldShowEvidenceCount(response) ? (
+          <span>{response.final_evidence.length} evidence cards</span>
+        ) : (
+          <span>No document evidence used</span>
+        )}
         <span>{Math.round(response.timing.total ?? 0)} ms</span>
       </div>
       {response.sub_question_support?.length ? (
@@ -223,6 +219,23 @@ function AssistantAnswer({
       ) : null}
     </div>
   );
+}
+
+function answerModeLabel(response: QueryResponse): string {
+  const mode = response.answer.answer_mode ?? response.answer_mode;
+  if (mode === "general") return "General answer - not grounded in uploaded materials";
+  if (mode === "help") return "App help";
+  if (mode === "refusal") return "No document evidence used";
+  return "Grounded answer";
+}
+
+function shouldShowEvidenceCount(response: QueryResponse): boolean {
+  const mode = response.answer.answer_mode ?? response.answer_mode;
+  return mode === "grounded" || Boolean(response.final_evidence.length);
+}
+
+function isGroundedResponse(response: QueryResponse): boolean {
+  return (response.answer.answer_mode ?? response.answer_mode ?? "grounded") === "grounded";
 }
 
 function QueryComposer({

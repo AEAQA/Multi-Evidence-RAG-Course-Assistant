@@ -125,6 +125,8 @@ The query planner runs before retrieval and produces JSON-only planning data:
 ```json
 {
   "original_query": "what is word2vec? and what is transformer?",
+  "route": "multi_intent_material_query",
+  "requires_retrieval": true,
   "is_multi_intent": true,
   "sub_questions": [
     {
@@ -139,9 +141,27 @@ The query planner runs before retrieval and produces JSON-only planning data:
     }
   ],
   "answer_style": "sectioned",
-  "requires_partial_support_status": true
+  "requires_partial_support_status": true,
+  "retrieval_query": "word2vec transformer definition concept",
+  "answer_mode": "grounded",
+  "evidence_panel_mode": "show",
+  "reason_code": "course_material_related"
 }
 ```
+
+Supported route labels:
+
+```text
+material_query
+multi_intent_material_query
+general_question
+app_help
+out_of_scope
+```
+
+Only `material_query` and `multi_intent_material_query` require retrieval.
+`general_question`, `app_help` and `out_of_scope` return no citations, no final
+evidence and `evidence_panel_mode = "hide"`.
 
 Supported intent labels:
 
@@ -185,13 +205,17 @@ Answer responses include a generation-mode marker:
 ```json
 {
   "answer": "Q1. What is Word2Vec?\nWord2Vec is explained as ... [E1].",
-  "generation_mode": "llm"
+  "generation_mode": "llm",
+  "answer_mode": "grounded"
 }
 ```
 
 Supported values are `llm`, `mock`, `fallback` and `none`. This is user-facing
 metadata for transparency and should not expose API keys, provider traces or
 private prompts.
+
+Supported answer modes are `grounded`, `general`, `help` and `refusal`.
+Only `grounded` answers should look document-cited in the UI.
 
 ## Fused result schema
 

@@ -76,6 +76,61 @@ def test_query_service_no_key_api_mode_falls_back_to_mock() -> None:
     assert state.provider_status.by_component["reranker"].state == "missing-key"
 
 
+def test_general_question_skips_retrieval_and_hides_evidence() -> None:
+    chunk = Chunk(
+        chunk_id="doc_page001_text_0001",
+        doc_id="doc",
+        source_file="notes.txt",
+        page=1,
+        type="text",
+        text="Course material about retrieval.",
+        metadata=ChunkMetadata(),
+    )
+
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[chunk],
+        retrieval_pipeline=_ExplodingPipeline(),
+    ).run("What is the weather today?", top_k=3)
+
+    assert state.query_plan is not None
+    assert state.query_plan.route == "general_question"
+    assert state.query_plan.requires_retrieval is False
+    assert state.answer.answer_mode == "general"
+    assert state.evidence_panel_mode == "hide"
+    assert state.final_evidence == []
+    assert state.answer.citations == []
+    assert state.retrieval.reranked_results == []
+
+
+def test_app_help_skips_retrieval() -> None:
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[],
+        retrieval_pipeline=_ExplodingPipeline(),
+    ).run("How do I upload materials?", top_k=3)
+
+    assert state.query_plan is not None
+    assert state.query_plan.route == "app_help"
+    assert state.answer.answer_mode == "help"
+    assert "Manage Materials" in state.answer.answer
+    assert state.final_evidence == []
+
+
+def test_out_of_scope_skips_retrieval() -> None:
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[],
+        retrieval_pipeline=_ExplodingPipeline(),
+    ).run("Can you book a flight for me?", top_k=3)
+
+    assert state.query_plan is not None
+    assert state.query_plan.route == "out_of_scope"
+    assert state.answer.answer_mode == "refusal"
+    assert "study-material questions" in state.answer.answer
+    assert state.final_evidence == []
+
+
 def test_query_service_diagnostics_are_stable() -> None:
     state = QueryService(config=AppConfig()).run("overfitting validation", top_k=2)
     reranked = next(item for item in state.diagnostics if item.method == "reranked")
@@ -434,6 +489,17 @@ class _QueryAwarePipeline:
             "reranker": 0.0,
             "retrieval": 0.0,
         }
+
+
+class _ExplodingPipeline:
+    def search_with_timing(
+        self,
+        query: str,
+        *,
+        top_k: int,
+    ) -> tuple[RetrievalPipelineOutput, dict[str, float]]:
+        del query, top_k
+        raise AssertionError("retrieval should not run for this route")
 
 
 def _result(chunk: Chunk, *, score: float) -> RetrievalResult:

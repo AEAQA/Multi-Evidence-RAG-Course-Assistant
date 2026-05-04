@@ -324,3 +324,25 @@ source/page/preview. The answer planner still only plans retrieval; final
 multi-intent answers are generated through the configured answer LLM in API
 mode, with deterministic mock/fallback generation clearly marked by
 `answer.generation_mode`.
+
+## Decision 035: Route non-material questions before retrieval
+
+Reason:
+
+The product should not force weather, chitchat, app-usage help or unrelated
+requests through RAG retrieval, because that creates fake-looking evidence and
+weakens the distinction between grounded course-material answers and general
+assistant behavior. Stage 6B extends the intent planner into a query router.
+Only `material_query` and `multi_intent_material_query` build indexes and call
+retrieval. `general_question`, `app_help` and `out_of_scope` return explicit
+no-evidence answers with `evidence_panel_mode = hide`, preserving RAG
+diagnostics for material queries only.
+
+Follow-up guard:
+
+The optional LLM planner may misclassify course concepts as general knowledge.
+The deterministic router therefore remains authoritative for the
+retrieval/no-retrieval boundary. LLM planner output can improve material-query
+decomposition, but it cannot downgrade deterministic material queries to
+general/help/refusal routes or force deterministic general/help routes into
+retrieval.

@@ -155,7 +155,7 @@ export default function App() {
       });
       setLatestResponse(response);
       setVisibleEvidenceResponse(response);
-      setShowEvidence(true);
+      setShowEvidence(shouldShowEvidencePanel(response));
       const assistantMessage: ChatMessage = {
         id: createId(),
         role: "assistant",
@@ -251,6 +251,16 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function shouldShowEvidencePanel(response: QueryResponse): boolean {
+  if (response.evidence_panel_mode === "show") {
+    return true;
+  }
+  if (response.evidence_panel_mode === "hide") {
+    return false;
+  }
+  return response.final_evidence.length > 0 || response.retrieval_trace.length > 0;
 }
 
 const scopeLabels: Record<ScopeMode, string> = {

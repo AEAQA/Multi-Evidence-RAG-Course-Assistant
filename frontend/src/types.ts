@@ -61,6 +61,7 @@ export interface AnswerPayload {
   grounding_status: "grounded" | "insufficient_evidence";
   retrieval_explanation?: string;
   generation_mode?: string;
+  answer_mode?: "grounded" | "general" | "help" | "refusal";
 }
 
 export interface Citation {
@@ -138,6 +139,8 @@ export interface QueryResponse {
   query_plan?: QueryPlan | null;
   sub_question_support?: SubQuestionSupport[];
   support_label?: string;
+  answer_mode?: "grounded" | "general" | "help" | "refusal";
+  evidence_panel_mode?: "show" | "hide" | "diagnostics_only";
 }
 
 export interface SubQuestionPlan {
@@ -153,10 +156,16 @@ export interface SubQuestionPlan {
 
 export interface QueryPlan {
   original_query: string;
+  route?: "material_query" | "multi_intent_material_query" | "general_question" | "app_help" | "out_of_scope";
+  requires_retrieval?: boolean;
   is_multi_intent: boolean;
   sub_questions: SubQuestionPlan[];
   answer_style: "sectioned" | "single";
   requires_partial_support_status: boolean;
+  retrieval_query?: string;
+  answer_mode?: "grounded" | "general" | "help" | "refusal";
+  evidence_panel_mode?: "show" | "hide" | "diagnostics_only";
+  reason_code?: string;
   planner_provider?: string;
   fallback_used?: boolean;
 }

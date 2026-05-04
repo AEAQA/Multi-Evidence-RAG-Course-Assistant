@@ -19,6 +19,7 @@ const queryResponse = {
     style: "detailed",
     grounding_status: "grounded",
     generation_mode: "llm",
+    answer_mode: "grounded",
     retrieval_explanation:
       "Top reranked evidence chunks were selected for grounded answer generation."
   },
@@ -188,6 +189,8 @@ const queryResponse = {
   suggestions: ["Inspect cited evidence before trusting the answer."],
   query_plan: {
     original_query: "What does reranking do?",
+    route: "material_query",
+    requires_retrieval: true,
     is_multi_intent: false,
     sub_questions: [
       {
@@ -202,10 +205,16 @@ const queryResponse = {
       }
     ],
     answer_style: "single",
-    requires_partial_support_status: false
+    requires_partial_support_status: false,
+    retrieval_query: "reranking concept explanation",
+    answer_mode: "grounded",
+    evidence_panel_mode: "show",
+    reason_code: "course_material_related"
   },
   sub_question_support: [],
-  support_label: "supported"
+  support_label: "supported",
+  answer_mode: "grounded",
+  evidence_panel_mode: "show"
 };
 
 const insufficientResponse = {
@@ -279,6 +288,41 @@ const secondQueryResponse = {
   }
 };
 
+const generalResponse = {
+  ...queryResponse,
+  query: "What is the weather today?",
+  answer: {
+    ...queryResponse.answer,
+    text:
+      "General answer: I cannot check live weather from the local RAG workbench. This response is not grounded in uploaded materials.",
+    grounding_status: "insufficient_evidence",
+    generation_mode: "mock",
+    answer_mode: "general"
+  },
+  citations: [],
+  final_evidence: [],
+  retrieval_trace: [],
+  retrieval: { bm25: [], dense: [], fusion: [], reranked: [] },
+  diagnostics: [],
+  suggestions: ["Ask about uploaded documents to get citations."],
+  query_plan: {
+    original_query: "What is the weather today?",
+    route: "general_question",
+    requires_retrieval: false,
+    is_multi_intent: false,
+    sub_questions: [],
+    answer_style: "single",
+    requires_partial_support_status: false,
+    retrieval_query: "",
+    answer_mode: "general",
+    evidence_panel_mode: "hide",
+    reason_code: "general_knowledge"
+  },
+  support_label: "insufficient evidence",
+  answer_mode: "general",
+  evidence_panel_mode: "hide"
+};
+
 describe("React product workbench", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -290,7 +334,11 @@ describe("React product workbench", () => {
 
     expect(screen.getByRole("main", { name: /chat/i })).toBeInTheDocument();
     expect(await screen.findByText(/Ask a question about your study materials/i)).toBeInTheDocument();
+    expect(screen.getByText(/Answers are grounded in retrieved evidence/i)).toBeInTheDocument();
     expect(await screen.findByText(/1 document indexed/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Compare retrieval methods" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Find grounded evidence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Inspect evaluation metrics" })).not.toBeInTheDocument();
   });
 
   test("does not load or show the offline benchmark in the product UI", async () => {
@@ -352,6 +400,21 @@ describe("React product workbench", () => {
       scope: { mode: "uploaded", selected_doc_ids: ["doc-alpha"] }
     });
     expect(screen.getByRole("button", { name: "Show evidence E1" })).toBeInTheDocument();
+    expect(screen.getByText("Grounded answer")).toBeInTheDocument();
+  });
+
+  test("general answers do not auto-show evidence intelligence", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "What is the weather today?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText(/General answer: I cannot check live weather/i)).toBeInTheDocument();
+    expect(screen.getByText("General answer - not grounded in uploaded materials")).toBeInTheDocument();
+    expect(screen.getByText("No document evidence used")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Evidence Intelligence")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show evidence E1/i })).not.toBeInTheDocument();
   });
 
   test("clicking a citation highlights the matching evidence card", async () => {
@@ -472,7 +535,7 @@ describe("React product workbench", () => {
 
     await user.click(screen.getByText("Diagnostics"));
     expect(screen.getByText(/Inspect cited evidence/i)).toBeInTheDocument();
-    expect(within(screen.getByTestId("evidence-card-E2")).getByText("Table summary evidence")).toBeInTheDocument();
+    expect(within(screen.getByTestId("evidence-card-E2")).getByText("Table evidence")).toBeInTheDocument();
     expect(screen.queryByText("table")).not.toBeInTheDocument();
   });
 
@@ -577,6 +640,9 @@ async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
   }
   if (url === "/api/query") {
     const body = init?.body ? JSON.parse(String(init.body)) : {};
+    if (String(body.query).includes("weather")) {
+      return jsonResponse(generalResponse);
+    }
     if (String(body.query).includes("unanswerable")) {
       return jsonResponse(insufficientResponse);
     }

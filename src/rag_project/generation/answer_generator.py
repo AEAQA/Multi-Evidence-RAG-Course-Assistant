@@ -43,11 +43,17 @@ class AnswerGenerator:
         )
         response = self.llm_client.generate_answer(question, evidence_chunks)
         response.evidence_chunks = evidence_chunks
-        response.retrieval_explanation = (
+        orchestration_explanation = (
             f"Top {len(evidence_chunks)} reranked evidence chunks were selected "
             "for grounded answer generation. The prompt marks retrieved context "
             "as untrusted reference material."
         )
+        if response.retrieval_explanation:
+            response.retrieval_explanation = (
+                f"{orchestration_explanation} {response.retrieval_explanation}"
+            ).strip()
+        else:
+            response.retrieval_explanation = orchestration_explanation
         # Keep the prompt build on the orchestration path for API clients and
         # tests that verify prompt-injection handling.
         _ = prompt

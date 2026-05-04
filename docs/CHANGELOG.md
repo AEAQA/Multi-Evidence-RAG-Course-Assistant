@@ -161,6 +161,18 @@
   no-evidence path.
 * Registered PDF source responses now use inline PDF headers, and React source
   links open in a new tab without a download attribute.
+* Welcome empty state no longer shows the three starter CTA buttons that asked
+  template-like app/project questions.
+* Query planning now routes non-material questions before retrieval. General,
+  app-help and out-of-scope routes skip RAG retrieval and return no cited
+  evidence.
+* `/api/query` now exposes `answer.answer_mode`, top-level `answer_mode` and
+  `evidence_panel_mode` so React can hide Evidence Intelligence for
+  no-retrieval answers.
+* Query routing now keeps retrieval gating conservative when the optional LLM
+  planner is enabled: material-like questions cannot be downgraded to general
+  answers by planner output, and clear general/help routes cannot be forced into
+  RAG retrieval.
 * Public FastAPI document payloads no longer expose local `stored_path` or
   `chunk_cache_path` fields.
 * React evidence cards use support labels in the user-facing confidence slot

@@ -596,3 +596,23 @@ UI rules:
   details;
 * chat metadata may display `answer.generation_mode` so API users can tell
   whether the answer came from a real LLM, mock mode or provider fallback.
+
+## Stage 6B Query Routing UI
+
+The welcome state should not contain template buttons that ask about the app
+itself. It keeps the clean prompt, current scope status, input composer and
+Manage Materials entry, and states that users should ask about uploaded study
+materials for evidence-grounded answers.
+
+Answer-mode display:
+
+* grounded responses show `Grounded answer`, support status, evidence count and
+  the Evidence Intelligence panel;
+* general responses show `General answer - not grounded in uploaded materials`
+  and no evidence panel;
+* app-help responses show `App help` and no evidence panel;
+* refusal/out-of-scope responses show `No document evidence used` and no
+  evidence panel.
+
+The frontend must not make general/help/refusal answers look document-grounded,
+and must keep citation-to-evidence behavior unchanged for grounded answers.
