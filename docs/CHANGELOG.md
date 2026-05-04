@@ -76,6 +76,11 @@
 * Multi-intent query support that retrieves each planned sub-question
   separately and reports per-sub-question evidence support.
 * Registry-backed uploaded PDF source endpoint for evidence page jumps.
+* Stage 5C RetrievalFlow score label changed from "relative score within method" to "Match strength" with hover tooltip.
+* Stage 5C RetrievalFlow human-readable flow summary and collapsible "How to read this" explainer.
+* Stage 5C EvidenceIntelligencePanel Method Comparison section now collapsible via `<details>`.
+* Stage 5C EvidenceCard raw score and ScoreBar removed from user-facing area; replaced with support label pill.
+* Stage 5C CSS: added `prefers-reduced-motion` media query. Flowers use standalone match bars.
 
 ### Changed
 

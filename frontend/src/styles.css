@@ -224,6 +224,76 @@ button:disabled {
   padding-top: 12px;
 }
 
+.collapsible-section > details {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.collapsible-section > details[open] {
+  padding-bottom: 0;
+}
+
+.section-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+
+.section-summary::-webkit-details-marker {
+  display: none;
+}
+
+.section-summary h2 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.method-badge {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--muted);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.support-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  background: var(--card);
+}
+
+.support-pill:empty,
+.support-pill[class*="supported"] {
+  border-color: var(--green);
+  background: #dcfce7;
+  color: var(--green);
+}
+
+.open-page-link {
+  border: 1px solid var(--cyan);
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.open-page-link:hover {
+  background: #bae6fd;
+}
+
 .section-block h2 {
   margin: 0 0 9px;
   font-size: 13px;
@@ -729,6 +799,54 @@ button:disabled {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  cursor: help;
+}
+
+.flow-match-bar {
+  height: 5px;
+  margin-top: 0;
+  border-radius: 999px;
+  background: #d9e5ef;
+  overflow: hidden;
+}
+
+.flow-match-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+}
+
+.flow-summary {
+  margin: 10px 0 0;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.flow-explainer {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 8px 10px;
+}
+
+.flow-explainer summary {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.flow-explainer p {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 
 .method-tabs {
@@ -1363,4 +1481,22 @@ pre {
   color: #e2e8f0;
   padding: 14px;
   font-size: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell {
+    transition: none;
+  }
+
+  .right-panel {
+    animation: none;
+  }
+
+  .flow-match-fill {
+    transition: none;
+  }
+
+  .rank-track-fill {
+    transition: none;
+  }
 }

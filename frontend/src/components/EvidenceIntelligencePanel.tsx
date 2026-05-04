@@ -174,25 +174,27 @@ function LoadedEvidencePanel({
         />
       </section>
 
-      <section className="section-block">
-        <div className="section-row">
-          <h2>Method Comparison</h2>
-          <span className="pill">{activeRows.length} rows</span>
-        </div>
-        <MethodHowItWorks method={activeMethod} />
-        <div className="analysis-toggle">
-          <p>Inspect current-query coverage, overlap, latency, scores, and citations.</p>
-          <button
-            className={showMethodAnalysis ? "ghost-button method-active" : "ghost-button"}
-            type="button"
-            onClick={() => setShowMethodAnalysis(!showMethodAnalysis)}
-          >
-            {showMethodAnalysis ? "Hide analysis" : "Analyze methods"}
-          </button>
-        </div>
-        {showMethodAnalysis ? <PerQueryAnalysis response={response} /> : null}
-        <MethodTabs activeMethod={activeMethod} onMethodChange={setActiveMethod} />
-        <MethodRows rows={activeRows} />
+      <section className="section-block collapsible-section">
+        <details open>
+          <summary className="section-summary">
+            <h2>Method Comparison</h2>
+            <span className="pill">{activeRows.length} rows</span>
+          </summary>
+          <MethodHowItWorks method={activeMethod} />
+          <div className="analysis-toggle">
+            <p>Inspect current-query coverage, overlap, latency, scores, and citations.</p>
+            <button
+              className={showMethodAnalysis ? "ghost-button method-active" : "ghost-button"}
+              type="button"
+              onClick={() => setShowMethodAnalysis(!showMethodAnalysis)}
+            >
+              {showMethodAnalysis ? "Hide analysis" : "Analyze methods"}
+            </button>
+          </div>
+          {showMethodAnalysis ? <PerQueryAnalysis response={response} /> : null}
+          <MethodTabs activeMethod={activeMethod} onMethodChange={setActiveMethod} />
+          <MethodRows rows={activeRows} />
+        </details>
       </section>
 
       <Diagnostics response={response} />

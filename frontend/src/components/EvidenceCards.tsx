@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { EvidenceItem } from "../types";
-import { formatScore, ScoreBar } from "./ScoreBar";
 
 export function EvidenceCard({
   item,
@@ -28,8 +27,8 @@ export function EvidenceCard({
     >
       <div className="evidence-topline">
         <strong>{item.evidence_id}</strong>
-        <span>{item.method}</span>
-        <span>{item.support_label ?? confidenceLabel(item.confidence ?? item.score)}</span>
+        <span className="method-badge">{item.method}</span>
+        <span className="support-pill">{item.support_label ?? confidenceLabel(item.confidence ?? item.score)}</span>
       </div>
 
       {item.type === "image" && item.image_url && !imageError ? (
@@ -54,7 +53,7 @@ export function EvidenceCard({
       {item.type === "table" && item.table_summary ? (
         <>
           <p className="evidence-table-summary">
-            <span className="table-badge">Table summary evidence</span> {visiblePreview}
+            <span className="table-badge">Table summary</span> {visiblePreview}
           </p>
         </>
       ) : null}
@@ -77,18 +76,13 @@ export function EvidenceCard({
         <span>{item.source_file}</span>
         <span>page {item.page ?? "n/a"}</span>
         {item.source_url && item.page ? (
-          <a href={item.source_url} target="_blank" rel="noopener noreferrer">
+          <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="open-page-link">
             Open page
           </a>
         ) : null}
         <span>{displayEvidenceType(item.type)}</span>
         {item.sub_question_id ? <span>{item.sub_question_id}</span> : null}
-        {item.type === "table" && item.table_summary ? (
-          <span className="pill table-pill">Table summary evidence</span>
-        ) : null}
       </div>
-
-      <ScoreBar value={item.confidence ?? item.score} />
 
       <button
         className="detail-toggle"
@@ -122,15 +116,15 @@ export function EvidenceCard({
 
 export function displayEvidenceType(type?: string | null): string {
   if (type === "image") return "Image evidence";
-  if (type === "table") return "Table summary evidence";
+  if (type === "table") return "Table evidence";
   return "Text evidence";
 }
 
 function confidenceLabel(value: number): string {
-  if (value >= 0.75) return "high confidence";
-  if (value >= 0.35) return "medium confidence";
-  if (value > 0) return "low confidence";
-  return formatScore(value);
+  if (value >= 0.75) return "supported";
+  if (value >= 0.35) return "partial";
+  if (value > 0) return "low";
+  return "none";
 }
 
 function sentenceBoundaryExcerpt(text: string, maxChars: number): string {

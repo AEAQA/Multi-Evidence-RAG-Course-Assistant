@@ -1,5 +1,4 @@
 import type { RetrievalStage } from "../types";
-import { ScoreBar } from "./ScoreBar";
 
 interface RetrievalFlowProps {
   stages: RetrievalStage[];
@@ -16,19 +15,42 @@ export function RetrievalFlow({ stages, finalEvidenceIds, allRetrieval }: Retrie
     }
   }
 
+  const topStages = stages.filter((s) => s.stage !== "Final Evidence");
+  const finalStage = stages.find((s) => s.stage === "Final Evidence");
+  const contributedCount = Object.values(contributionByStage).filter((c) => c > 0).length;
+  const finalCount = finalEvidenceIds?.size ?? finalStage?.result_count ?? 0;
+
+  const summary = buildFlowSummary(contributedCount, finalCount);
+
   return (
-    <div className="flow-grid">
-      {stages.map((stage, index) => (
-        <div key={stage.stage} className="flow-item">
-          {index > 0 ? <span className="flow-arrow" aria-hidden="true">-&gt;</span> : null}
-          <FlowCard
-            stage={stage}
-            isFinal={stage.stage === "Final Evidence"}
-            contribution={contributionByStage[stage.stage]}
-            finalEvidenceCount={finalEvidenceIds?.size}
-          />
+    <div className="flow-section">
+      <div className="flow-section-body">
+        <div className="flow-grid">
+          {stages.map((stage, index) => (
+            <div key={stage.stage} className="flow-item">
+              {index > 0 ? <span className="flow-arrow" aria-hidden="true">→</span> : null}
+              <FlowCard
+                stage={stage}
+                isFinal={stage.stage === "Final Evidence"}
+                contribution={contributionByStage[stage.stage]}
+                finalEvidenceCount={finalEvidenceIds?.size}
+              />
+            </div>
+          ))}
         </div>
-      ))}
+        {summary ? <p className="flow-summary">{summary}</p> : null}
+        <details className="flow-explainer">
+          <summary>How to read this</summary>
+          <p>
+            BM25, Dense, Fusion, and Reranker each use different scoring
+            algorithms. The bars above show <strong>match strength within each
+            method</strong>, not scores that can be directly compared across
+            methods. The flow moves left to right: BM25 and Dense search
+            independently, Fusion blends their rankings, and Reranker selects
+            the final evidence used to generate the answer.
+          </p>
+        </details>
+      </div>
     </div>
   );
 }
@@ -59,8 +81,12 @@ function FlowCard({
           Contributed {contribution}/{finalEvidenceCount} final
         </span>
       ) : null}
-      <ScoreBar value={stage.confidence ?? stage.top_score ?? 0} />
-      <span className="flow-score-label">relative score within method</span>
+      <div className="flow-match-bar" aria-hidden="true">
+        <span className="flow-match-fill" style={{ width: `${Math.max(4, (stage.confidence ?? 0) * 100)}%` }} />
+      </div>
+      <span className="flow-score-label" title="Scores are normalized within each retrieval method and should not be compared directly across BM25, Dense, Fusion, and Reranker.">
+        Match strength
+      </span>
     </article>
   );
 }
@@ -71,4 +97,15 @@ function methodToStageName(method: string): string {
   if (method === "fusion") return "Fusion";
   if (method === "reranked") return "Reranker";
   return method;
+}
+
+function buildFlowSummary(contributedCount: number, finalCount: number): string | null {
+  if (finalCount <= 0) return null;
+  if (contributedCount >= 3) {
+    return `Evidence was found across ${contributedCount} of the 4 retrieval stages. The Reranker selected ${finalCount} final evidence card${finalCount > 1 ? "s" : ""} for the answer.`;
+  }
+  if (contributedCount >= 2) {
+    return `${contributedCount} retrieval stages contributed to the ${finalCount} final evidence card${finalCount > 1 ? "s" : ""}.`;
+  }
+  return `The Reranker selected ${finalCount} final evidence card${finalCount > 1 ? "s" : ""} from the fusion candidates.`;
 }
