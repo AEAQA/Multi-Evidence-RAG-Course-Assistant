@@ -198,42 +198,104 @@ const insufficientResponse = {
   warnings: ["No final evidence was selected."]
 };
 
+const secondQueryResponse = {
+  ...queryResponse,
+  query: "What does BM25 do?",
+  answer: {
+    ...queryResponse.answer,
+    text: "BM25 finds evidence through lexical term matching [E1].",
+    retrieval_explanation: "BM25 evidence was selected for this follow-up answer."
+  },
+  citations: [
+    {
+      evidence_id: "E1",
+      chunk_id: "chunk-bm25",
+      doc_id: "doc-alpha",
+      source_file: "bm25_notes.txt",
+      page: 4
+    }
+  ],
+  final_evidence: [
+    {
+      evidence_id: "E1",
+      chunk_id: "chunk-bm25",
+      doc_id: "doc-alpha",
+      source_file: "bm25_notes.txt",
+      page: 4,
+      type: "text",
+      method: "reranked",
+      score: 0.88,
+      confidence: 0.88,
+      preview: "BM25 ranks chunks using lexical term matching."
+    }
+  ],
+  retrieval: {
+    ...queryResponse.retrieval,
+    reranked: [
+      {
+        rank: 1,
+        score: 0.88,
+        method: "reranked",
+        chunk_id: "chunk-bm25",
+        doc_id: "doc-alpha",
+        source_file: "bm25_notes.txt",
+        page: 4,
+        type: "text",
+        preview: "BM25 ranks chunks using lexical term matching."
+      }
+    ]
+  },
+  timing: {
+    bm25: 3,
+    dense: 4,
+    fusion: 2,
+    reranker: 5,
+    retrieval_total: 14,
+    generation: 48,
+    total: 68
+  }
+};
+
 describe("React product workbench", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.stubGlobal("fetch", vi.fn(mockFetch));
   });
 
-  test("renders three panels and offline-safe empty states", async () => {
+  test("renders chat-first layout and offline-safe empty states", async () => {
     render(<App />);
 
-    expect(await screen.findByRole("complementary", { name: /knowledge base/i })).toBeInTheDocument();
     expect(screen.getByRole("main", { name: /chat/i })).toBeInTheDocument();
-    expect(screen.getByRole("complementary", { name: /evidence intelligence/i })).toBeInTheDocument();
-    expect(screen.getByText(/Ask a question after choosing the corpus scope/i)).toBeInTheDocument();
-    expect(screen.getByText(/Awaiting Query/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Ask a question about your study materials/i)).toBeInTheDocument();
+    expect(await screen.findByText(/1 document indexed/i)).toBeInTheDocument();
   });
 
   test("does not load or show the offline benchmark in the product UI", async () => {
     const fetchSpy = vi.mocked(fetch);
     render(<App />);
 
+    const materialsBtn = await screen.findByRole("button", { name: "Manage Materials" });
+    fireEvent.click(materialsBtn);
     await screen.findByText("alpha_notes.txt");
 
     expect(screen.queryByText(/Offline Benchmark/i)).not.toBeInTheDocument();
     expect(fetchSpy.mock.calls.some(([url]) => url === "/api/evaluation/summary")).toBe(false);
   });
 
-  test("loads documents and shows chunk counts and type summary", async () => {
+  test("loads documents and shows chunk summary when materials drawer is open", async () => {
     render(<App />);
 
+    const materialsBtn = await screen.findByRole("button", { name: "Manage Materials" });
+    fireEvent.click(materialsBtn);
     expect(await screen.findByText("alpha_notes.txt")).toBeInTheDocument();
-    expect(screen.getByText("3 chunks")).toBeInTheDocument();
-    expect(screen.getByText("text 3")).toBeInTheDocument();
+    expect(screen.getByText("3 chunks - text 3")).toBeInTheDocument();
   });
 
   test("reports unsupported upload failures without crashing", async () => {
     render(<App />);
+
+    const materialsBtn = await screen.findByRole("button", { name: "Manage Materials" });
+    fireEvent.click(materialsBtn);
 
     const input = await screen.findByLabelText(/upload study materials/i);
     fireEvent.change(input, {
@@ -250,9 +312,12 @@ describe("React product workbench", () => {
     const fetchSpy = vi.mocked(fetch);
     render(<App />);
 
+    const materialsBtn = await screen.findByRole("button", { name: "Manage Materials" });
+    fireEvent.click(materialsBtn);
     await screen.findByText("alpha_notes.txt");
     await user.click(screen.getByRole("button", { name: "Uploaded only" }));
-    await user.click(screen.getByLabelText(/doc-alpha/i));
+    const checkbox = screen.getByRole("checkbox");
+    await user.click(checkbox);
     await user.type(screen.getByLabelText(/study question/i), "What does reranking do?");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
@@ -260,6 +325,7 @@ describe("React product workbench", () => {
     const queryCall = fetchSpy.mock.calls.find(([url]) => url === "/api/query");
     expect(queryCall).toBeTruthy();
     expect(JSON.parse(String(queryCall?.[1]?.body))).toMatchObject({
+      top_k: 3,
       scope: { mode: "uploaded", selected_doc_ids: ["doc-alpha"] }
     });
     expect(screen.getByRole("button", { name: "Show evidence E1" })).toBeInTheDocument();
@@ -269,6 +335,8 @@ describe("React product workbench", () => {
     const user = userEvent.setup();
     render(<App />);
 
+    const materialsBtn = await screen.findByRole("button", { name: "Manage Materials" });
+    fireEvent.click(materialsBtn);
     await screen.findByText("alpha_notes.txt");
     await user.type(screen.getByLabelText(/study question/i), "What does reranking do?");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -277,7 +345,30 @@ describe("React product workbench", () => {
     expect(screen.getByTestId("evidence-card-E1")).toHaveClass("evidence-card-active");
   });
 
-  test("renders retrieval flow, method tabs, diagnostics, and text-like table evidence", async () => {
+  test("clicking a citation in an older answer restores that turn's evidence", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "What does reranking do?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByText("Reranking selects the final evidence chunks.");
+
+    await user.type(screen.getByLabelText(/study question/i), "What does BM25 do?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findAllByText("BM25 ranks chunks using lexical term matching.")).not.toHaveLength(0);
+
+    const firstAnswer = screen.getByText(/The materials indicate that reranking/i).closest("article");
+    expect(firstAnswer).toBeTruthy();
+    await user.click(
+      within(firstAnswer as HTMLElement).getByRole("button", { name: "Show evidence E1" })
+    );
+
+    expect(screen.getByText("Reranking selects the final evidence chunks.")).toBeInTheDocument();
+    expect(screen.queryByText("BM25 ranks chunks using lexical term matching.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("evidence-card-E1")).toHaveClass("evidence-card-active");
+  });
+
+  test("renders retrieval flow, method tabs, diagnostics", async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -291,8 +382,20 @@ describe("React product workbench", () => {
 
     await user.click(screen.getByText("Diagnostics"));
     expect(screen.getByText(/Inspect cited evidence/i)).toBeInTheDocument();
-    expect(within(screen.getByTestId("evidence-card-E2")).getByText("Text evidence")).toBeInTheDocument();
+    expect(within(screen.getByTestId("evidence-card-E2")).getByText("Table summary evidence")).toBeInTheDocument();
     expect(screen.queryByText("table")).not.toBeInTheDocument();
+  });
+
+  test("latency analysis separates generation from retrieval stages", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "What does reranking do?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(await screen.findByRole("button", { name: "Analyze methods" }));
+
+    expect(screen.getByText("Generation")).toBeInTheDocument();
+    expect(screen.getByText("Retrieval total")).toBeInTheDocument();
   });
 
   test("keeps detailed method analysis hidden until requested", async () => {
@@ -331,31 +434,30 @@ describe("React product workbench", () => {
     expect(screen.getByText("Citation coverage")).toBeInTheDocument();
   });
 
-  test("resizes left and right panels with drag handles", async () => {
+  test("resizes right evidence panel with drag handle (ratio-based)", async () => {
+    const user = userEvent.setup();
     render(<App />);
 
-    const shell = await screen.findByTestId("app-shell");
-    expect(shell).toHaveStyle({
-      gridTemplateColumns: "300px 8px minmax(420px, 1fr) 8px 390px"
-    });
+    await user.type(await screen.findByLabelText(/study question/i), "What does reranking do?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("tab", { name: "BM25" });
 
-    fireEvent.mouseDown(screen.getByRole("separator", { name: /resize knowledge base panel/i }), {
-      clientX: 300
-    });
-    fireEvent.mouseMove(window, { clientX: 340 });
-    fireEvent.mouseUp(window);
-    expect(shell).toHaveStyle({
-      gridTemplateColumns: "340px 8px minmax(420px, 1fr) 8px 390px"
-    });
+    const shell = await screen.findByTestId("app-shell");
+    expect(shell.style.gridTemplateColumns).toContain("0.33fr");
+    expect(shell.style.gridTemplateColumns).toContain("0.67fr");
+
+    vi.spyOn(shell, "getBoundingClientRect").mockImplementation(() => ({
+      x: 0, y: 0, top: 0, right: 1200, bottom: 800, left: 0,
+      width: 1200, height: 800,
+      toJSON: () => ({})
+    }));
 
     fireEvent.mouseDown(screen.getByRole("separator", { name: /resize evidence panel/i }), {
-      clientX: 900
+      clientX: 1200 * 0.67
     });
-    fireEvent.mouseMove(window, { clientX: 860 });
+    fireEvent.mouseMove(window, { clientX: 1200 * 0.50 });
     fireEvent.mouseUp(window);
-    expect(shell).toHaveStyle({
-      gridTemplateColumns: "340px 8px minmax(420px, 1fr) 8px 430px"
-    });
+    expect(shell.style.gridTemplateColumns).toContain("0.50fr");
   });
 });
 
@@ -387,6 +489,9 @@ async function mockFetch(input: RequestInfo | URL, init?: RequestInit): Promise<
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     if (String(body.query).includes("unanswerable")) {
       return jsonResponse(insufficientResponse);
+    }
+    if (String(body.query).includes("BM25")) {
+      return jsonResponse(secondQueryResponse);
     }
     return jsonResponse(queryResponse);
   }

@@ -60,7 +60,7 @@ def test_mock_llm_returns_natural_answer_with_inline_citations() -> None:
 
     response = MockLLMClient().generate_answer("What is overfitting?", chunks)
 
-    assert response.answer.startswith("The materials indicate")
+    assert response.answer.startswith("Based on the retrieved")
     assert "[E1]" in response.answer
     assert "[E2]" in response.answer
     assert "References:" not in response.answer

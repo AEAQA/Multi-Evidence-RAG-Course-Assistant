@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from pathlib import Path
 from time import perf_counter
 
 from pydantic import BaseModel, Field
@@ -74,7 +75,7 @@ class QueryService:
         self.chunks = load_sample_corpus() if chunks is None else list(chunks)
         self.retrieval_pipeline = retrieval_pipeline
 
-    def run(self, query: str, *, top_k: int = 5) -> WorkbenchState:
+    def run(self, query: str, *, top_k: int = 3) -> WorkbenchState:
         """Run the full workbench query path with provider fallback clients."""
         return _run_query(
             query=query,
@@ -90,7 +91,7 @@ def run_query(
     corpus_bundle: CorpusBundle,
     *,
     config: AppConfig | None = None,
-    top_k: int = 5,
+    top_k: int = 3,
     retrieval_pipeline: RetrievalPipeline | None = None,
 ) -> WorkbenchState:
     """Run a query against an explicit corpus bundle."""
@@ -134,10 +135,15 @@ def _run_query(
     retrieval_finished = perf_counter()
 
     generation_started = perf_counter()
+    answer_results = _answer_candidate_results(
+        normalized_query,
+        retrieval.reranked_results,
+        max_results=bounded_top_k,
+    )
     answer = AnswerGenerator(
         llm_client=create_llm_client(config),
         max_evidence=bounded_top_k,
-    ).generate(normalized_query, retrieval.reranked_results)
+    ).generate(normalized_query, answer_results)
     finished = perf_counter()
 
     timing_ms = {
@@ -200,6 +206,7 @@ def _build_final_evidence(results: list[RetrievalResult]) -> list[EvidenceRefere
     evidence: list[EvidenceReference] = []
     for index, result in enumerate(results, start=1):
         chunk = result.chunk
+        confidence = _confidence_from_score(float(result.score))
         evidence.append(
             EvidenceReference(
                 evidence_id=f"E{index}",
@@ -210,8 +217,10 @@ def _build_final_evidence(results: list[RetrievalResult]) -> list[EvidenceRefere
                 type=chunk.type,
                 method=result.method,
                 score=round(float(result.score), 4),
-                confidence=_confidence_from_score(float(result.score)),
+                confidence=confidence,
                 preview=_chunk_preview(chunk),
+                image_url=_evidence_image_url(chunk),
+                table_summary=_chunk_preview(chunk) if _table_summary_available(chunk) else None,
                 chunk=chunk,
             )
         )
@@ -237,7 +246,16 @@ def _attach_evidence_ids(
     answer_text = answer.answer
     if not answer.insufficient_evidence and not any(marker in answer_text for marker in markers):
         answer_text = _add_inline_markers(answer_text, markers)
+    answer_text = _clean_answer_text(answer_text)
     return answer.model_copy(update={"answer": answer_text, "citations": citations})
+
+
+def _clean_answer_text(text: str) -> str:
+    text = _clean_display_text(text)
+    text = re.sub(r"\b(chunk_id|doc_id|internal_id)\s*[:=]\s*\S+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bpage_\d+_(text|image|table)_\d+\b", "[ref]", text)
+    text = " ".join(text.split())
+    return text.strip()
 
 
 def _add_inline_markers(answer_text: str, markers: list[str]) -> str:
@@ -324,14 +342,208 @@ def _build_scope(
     }
 
 
-def _chunk_preview(chunk: Chunk, *, max_chars: int = 220) -> str:
+def _chunk_preview(chunk: Chunk, *, max_chars: int = 520) -> str:
+    if chunk.type == "table":
+        if not is_valid_table_evidence(chunk):
+            return ""
+        text = _best_table_preview_text(chunk)
+        if text:
+            return _sentence_boundary_excerpt(_clean_display_text(text), max_chars=max_chars)
+        return ""
+    if chunk.type == "image" and chunk.metadata.image_path:
+        if chunk.metadata.caption:
+            return _sentence_boundary_excerpt(_clean_display_text(chunk.metadata.caption), max_chars=max_chars)
+        nearby = chunk.metadata.nearby_text or chunk.text or ""
+        return _sentence_boundary_excerpt(_clean_display_text(nearby), max_chars=max_chars)
     if chunk.metadata.caption:
         text = chunk.metadata.caption
-    elif chunk.metadata.table_html:
-        text = chunk.text or chunk.metadata.table_html
     else:
         text = chunk.text
-    return text[:max_chars]
+    return _sentence_boundary_excerpt(_clean_display_text(text), max_chars=max_chars)
+
+
+def _clean_display_text(text: str) -> str:
+    if not text:
+        return ""
+    text = " ".join(str(text).split())
+    text = re.sub(r"\|{3,}", " ", text)
+    text = re.sub(r"\|{2,3}", " | ", text)
+    text = re.sub(r"[│┃┆┇┊┋╎╏╌╍]{2,}", " ", text)
+    text = re.sub(r"[^\S\r\n]{2,}", " ", text)
+    text = re.sub(r"([a-f0-9]{40,})", "[hash]", text)
+    text = re.sub(r"\b[a-f0-9]{32}\b", "[hash]", text)
+    return text.strip()
+
+
+def _sentence_boundary_excerpt(text: str, *, max_chars: int) -> str:
+    normalized = " ".join(str(text or "").split())
+    if len(normalized) <= max_chars:
+        return normalized
+    window = normalized[: max_chars + 1]
+    boundary = max(
+        window.rfind(". "),
+        window.rfind("? "),
+        window.rfind("! "),
+        window.rfind("; "),
+    )
+    if boundary > max_chars // 3:
+        return window[: boundary + 1].strip() + "..."
+    return normalized[:max_chars].rstrip() + "..."
+
+
+def _is_noisy_table_content(chunk: Chunk) -> bool:
+    return not is_valid_table_evidence(chunk)
+
+
+def is_valid_table_evidence(chunk: Chunk) -> bool:
+    """Return whether a table chunk is readable enough for cited evidence."""
+    if chunk.type != "table":
+        return True
+
+    rich_payloads = [
+        _metadata_text(chunk, "table_summary"),
+        _metadata_text(chunk, "table_markdown"),
+        _html_to_text(_metadata_text(chunk, "table_html")),
+        _cells_to_text(getattr(chunk.metadata, "cells", None)),
+    ]
+    for payload in rich_payloads:
+        if _is_readable_table_text(payload, min_chars=24):
+            return True
+
+    caption = _metadata_text(chunk, "caption")
+    if _is_placeholder_table_text(caption):
+        caption = ""
+
+    fallback_payloads = [
+        caption,
+        _metadata_text(chunk, "nearby_text"),
+        chunk.text or "",
+    ]
+    return any(
+        _is_readable_table_text(payload, min_chars=80)
+        for payload in fallback_payloads
+    )
+
+
+def _best_table_preview_text(chunk: Chunk) -> str:
+    candidates = [
+        _metadata_text(chunk, "table_summary"),
+        _metadata_text(chunk, "table_markdown"),
+        _html_to_text(_metadata_text(chunk, "table_html")),
+        _cells_to_text(getattr(chunk.metadata, "cells", None)),
+        _metadata_text(chunk, "nearby_text"),
+        chunk.text or "",
+    ]
+    for candidate in candidates:
+        if _is_readable_table_text(candidate, min_chars=24):
+            return candidate
+    return ""
+
+
+def _metadata_text(chunk: Chunk, field: str) -> str:
+    value = getattr(chunk.metadata, field, None)
+    return str(value or "")
+
+
+def _html_to_text(value: str) -> str:
+    return re.sub(r"<[^>]+>", " ", str(value or ""))
+
+
+def _cells_to_text(cells: object) -> str:
+    if not isinstance(cells, list):
+        return ""
+    rows: list[str] = []
+    for row in cells:
+        if isinstance(row, list):
+            rows.append(" | ".join(str(cell or "").strip() for cell in row))
+    return " ".join(rows)
+
+
+def _is_readable_table_text(text: str, *, min_chars: int) -> bool:
+    cleaned = _clean_display_text(_html_to_text(text))
+    if _is_placeholder_table_text(cleaned):
+        return False
+    if len(cleaned.strip()) < min_chars:
+        return False
+    if cleaned.count("|") > len(cleaned) * 0.15:
+        return False
+    if re.search(r"(internal[_\s]?id|_id\b|chunk_id|doc_id)", cleaned, re.IGNORECASE):
+        return False
+    if re.search(r"\b[a-f0-9]{32,}\b", cleaned, re.IGNORECASE):
+        return False
+    repeated_symbol_count = len(re.findall(r"[|_\-=]{4,}", cleaned))
+    if repeated_symbol_count:
+        return False
+    readable = re.findall(r"[a-zA-Z\u4e00-\u9fff\d]", cleaned)
+    if len(readable) < 15:
+        return False
+    alpha_digit_ratio = len(readable) / max(len(cleaned), 1)
+    return alpha_digit_ratio >= 0.12
+
+
+def _is_placeholder_table_text(text: str) -> bool:
+    normalized = " ".join(str(text or "").strip().lower().split())
+    normalized = normalized.strip(".")
+    return normalized in {
+        "",
+        "(no text preview)",
+        "no text preview",
+        "table extracted from pdf",
+        "no table content",
+        "empty table",
+    }
+
+
+def _legacy_noisy_table_content(chunk: Chunk) -> bool:
+    caption = chunk.metadata.caption or ""
+    if caption.strip().lower() == "table extracted from pdf.":
+        return True
+    if re.match(r"^\s*Table extracted from PDF\.\s*$", caption):
+        return True
+    text = chunk.text or ""
+    if chunk.metadata.table_html:
+        html_text = re.sub(r"<[^>]+>", " ", chunk.metadata.table_html)
+        html_text = " ".join(html_text.split())
+        if html_text:
+            text = html_text
+    text = " ".join(text.split())
+    if not text:
+        return True
+    text_lower = text.lower().strip()
+    placeholder_patterns = [
+        "table extracted from pdf",
+        "no table content",
+        "empty table",
+    ]
+    for pattern in placeholder_patterns:
+        if text_lower == pattern:
+            return True
+    noise_patterns = [
+        r"^\s*\|+\s*$",
+        r"^\s*[│┃]+(.)*[│┃]+\s*$",
+    ]
+    for pattern in noise_patterns:
+        if re.search(pattern, text):
+            return True
+    alpha_ratio = len(re.findall(r"[a-zA-Z]", text)) / max(len(text), 1)
+    if alpha_ratio < 0.05 and not re.search(r"[\u4e00-\u9fff\d]", text):
+        return True
+    if re.search(r"(internal[_\s]?id|_id\b|chunk_id|doc_id)", text, re.IGNORECASE):
+        return True
+    return False
+
+
+def _table_summary_available(chunk: Chunk) -> bool:
+    if chunk.type != "table":
+        return False
+    return is_valid_table_evidence(chunk) and bool(_best_table_preview_text(chunk))
+
+
+def _evidence_image_url(chunk: Chunk) -> str | None:
+    image_path = chunk.metadata.image_path
+    if not image_path:
+        return None
+    return f"/api/static/images/{Path(image_path).name}"
 
 
 def build_method_diagnostics(
@@ -438,12 +650,67 @@ def _final_evidence_results(
 ) -> list[RetrievalResult]:
     if not evidence_chunks:
         return []
-    evidence_ids = {chunk.chunk_id for chunk in evidence_chunks}
-    return [
+    result_by_id = {result.chunk_id: result for result in reranked_results}
+    ordered = [
+        result_by_id[chunk.chunk_id]
+        for chunk in evidence_chunks
+        if chunk.chunk_id in result_by_id
+    ]
+    return [result for result in ordered if is_valid_table_evidence(result.chunk)]
+
+
+def _answer_candidate_results(
+    query: str,
+    reranked_results: list[RetrievalResult],
+    *,
+    max_results: int,
+) -> list[RetrievalResult]:
+    valid = [
         result
         for result in reranked_results
-        if result.chunk_id in evidence_ids
+        if is_valid_table_evidence(result.chunk)
     ]
+    if not valid:
+        return []
+
+    if _query_prefers_tables(query):
+        tables = [result for result in valid if result.chunk.type == "table"]
+        other = [result for result in valid if result.chunk.type != "table"]
+        return (tables + other)[:max_results]
+
+    text_image = [result for result in valid if result.chunk.type in {"text", "image"}]
+    tables = [result for result in valid if result.chunk.type == "table"]
+    return (text_image + tables)[:max_results]
+
+
+def _query_prefers_tables(query: str) -> bool:
+    normalized = str(query or "").lower()
+    table_terms = {
+        "table",
+        "formula",
+        "comparison",
+        "numerical",
+        "numeric",
+        "number",
+        "numbers",
+        "columns",
+        "column",
+        "rows",
+        "row",
+        "data",
+        "metric",
+        "metrics",
+        "score",
+        "scores",
+        "表格",
+        "数据",
+        "数值",
+        "对比",
+        "公式",
+        "列",
+        "行",
+    }
+    return any(term in normalized for term in table_terms)
 
 
 def _elapsed_ms(start: float, end: float) -> float:

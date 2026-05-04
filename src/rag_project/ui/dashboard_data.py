@@ -33,7 +33,7 @@ class EvaluationReportData(BaseModel):
 
 def build_sample_dashboard_state(
     query: str,
-    top_k: int = 5,
+    top_k: int = 3,
     *,
     config: AppConfig | None = None,
 ) -> DashboardState:

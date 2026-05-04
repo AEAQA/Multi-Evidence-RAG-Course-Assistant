@@ -121,7 +121,7 @@ def test_siliconflow_llm_failure_falls_back_to_mock() -> None:
 
     response = client.generate_answer("What is overfitting?", [_chunk()])
 
-    assert response.answer.startswith("The materials indicate")
+    assert response.answer.startswith("Based on the retrieved")
     assert "[E1]" in response.answer
     assert "fallback" in response.retrieval_explanation.lower()
 

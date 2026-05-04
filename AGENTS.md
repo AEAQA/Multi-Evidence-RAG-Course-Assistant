@@ -77,6 +77,51 @@ source .venv/bin/activate
 
 ---
 
+测试与环境注意事项：
+
+当前项目在 Windows / PowerShell 下开发，Conda 环境名是 `rag-study-assistant`。优先使用项目提供的跨平台脚本 `scripts/dev.py`，不要直接裸跑 `pytest`，因为直接 pytest 可能遇到 Windows 权限和临时目录/cache 问题。
+
+推荐 Python 命令使用环境内解释器：
+
+C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test
+C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval
+C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test
+C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app
+
+前端测试：
+- 用 `python scripts/dev.py ui-test`，它会解析 Windows 下的 `npm.cmd`，避免 PowerShell 执行策略拦截 `npm.ps1`。
+- 不要直接用 `npm run ...`，PowerShell 可能报：`无法加载 npm.ps1，因为在此系统上禁止运行脚本`。
+- 如果必须直接跑 npm，用：
+  `& 'C:\Program Files\nodejs\npm.cmd' run build`
+
+已知 sandbox 坑：
+- Vite/Vitest/esbuild 在启动子进程时可能报 `Error: spawn EPERM`。
+- 如果 `ui-test` 或 `npm.cmd run build` 因 esbuild spawn EPERM 失败，需要按权限流程用 `sandbox_permissions: require_escalated` 重跑。
+- 这个不是代码错误，是沙箱对子进程执行的限制。
+- 前端 build 在提权后已验证可通过。
+
+推荐完整回归顺序：
+1. `python scripts/dev.py ui-test`
+2. `npm.cmd run build`，如遇 esbuild spawn EPERM 则提权重跑
+3. `python scripts/dev.py test -- tests\unit\test_fastapi_api.py tests\unit\test_query_service.py -vv`
+4. `python scripts/dev.py test`
+5. `python scripts/dev.py eval`
+6. `python -m compileall scripts src tests app`
+
+测试结果解读：
+- focused FastAPI/query regression 目前应为 13 passed。
+- full Python suite 目前应为 91 passed。
+- frontend mocked React tests 目前应为 10 passed。
+- `python scripts/dev.py eval` 会刷新 `reports/evaluation/retrieval_metrics.csv`、`latency_metrics.csv`、`error_cases.md`，这些 reports 是 ignored/generated，用于验证 evaluation pipeline，不代表要提交。
+- pytest 有时会出现 `PytestCacheWarning: could not create cache path ... [WinError 5] 拒绝访问`，只要测试 passed，这个 warning 可记录但不视为失败。
+
+开发原则：
+- 继续使用 `scripts/dev.py`，保持 offline-first。
+- 默认测试不能访问网络、不能需要 API key、不能下载模型、不能需要 GPU。
+- 不要删除 Streamlit backup。
+- 不要提交 `.env`、private data、node_modules、dist、reports/evaluation。
+- 每阶段完成后更新 `MILESTONE.md`、`docs/PROJECT_MEMORY.md`、`docs/CHANGELOG.md`，必要时更新 specs 和 `docs/DECISIONS.md`。
+
 ## 2. Project Map
 
 使用以下目录定位项目文件：

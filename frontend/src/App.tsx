@@ -9,7 +9,6 @@ import {
 } from "./api/client";
 import { ChatPanel } from "./components/ChatPanel";
 import { EvidenceIntelligencePanel } from "./components/EvidenceIntelligencePanel";
-import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
 import type {
   ChatMessage,
   DocumentRecord,
@@ -19,8 +18,9 @@ import type {
   UploadFailure
 } from "./types";
 
-const LEFT_PANEL = { default: 300, min: 240, max: 460 };
-const RIGHT_PANEL = { default: 390, min: 320, max: 560 };
+const RATIO_DEFAULT = 0.33;
+const RATIO_MIN = 0.25;
+const RATIO_MAX = 0.50;
 
 export default function App() {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
@@ -29,15 +29,18 @@ export default function App() {
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [latestResponse, setLatestResponse] = useState<QueryResponse | null>(null);
+  const [visibleEvidenceResponse, setVisibleEvidenceResponse] = useState<QueryResponse | null>(null);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
-  const [topK, setTopK] = useState(5);
-  const [leftWidth, setLeftWidth] = useState(LEFT_PANEL.default);
-  const [rightWidth, setRightWidth] = useState(RIGHT_PANEL.default);
+  const [topK, setTopK] = useState(3);
+  const [evidenceRatio, setEvidenceRatio] = useState(RATIO_DEFAULT);
+  const [showMaterials, setShowMaterials] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(false);
   const resizeRef = useRef<ResizeState | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void refreshWorkspace();
@@ -46,15 +49,17 @@ export default function App() {
   useEffect(() => {
     function handleMove(event: MouseEvent) {
       const resize = resizeRef.current;
-      if (!resize) {
+      if (!resize || !shellRef.current) {
         return;
       }
-      const delta = event.clientX - resize.startX;
-      if (resize.panel === "left") {
-        setLeftWidth(clamp(resize.startWidth + delta, LEFT_PANEL.min, LEFT_PANEL.max));
-      } else {
-        setRightWidth(clamp(resize.startWidth - delta, RIGHT_PANEL.min, RIGHT_PANEL.max));
+      const rect = shellRef.current.getBoundingClientRect();
+      const totalWidth = rect.width;
+      if (totalWidth <= 0) {
+        return;
       }
+      const deltaRatio = (event.clientX - resize.startX) / totalWidth;
+      const newRatio = clamp(resize.startRatio - deltaRatio, RATIO_MIN, RATIO_MAX);
+      setEvidenceRatio(newRatio);
     }
 
     function handleUp() {
@@ -82,6 +87,11 @@ export default function App() {
     }
     return selectedDocIds;
   }, [scopeMode, selectedDocIds]);
+
+  const totalChunks = useMemo(
+    () => documents.reduce((sum, item) => sum + item.chunk_count, 0),
+    [documents]
+  );
 
   async function refreshWorkspace() {
     const [statusResult, documentResult] = await Promise.allSettled([
@@ -144,6 +154,8 @@ export default function App() {
         selectedDocIds: selectedForRequest
       });
       setLatestResponse(response);
+      setVisibleEvidenceResponse(response);
+      setShowEvidence(true);
       const assistantMessage: ChatMessage = {
         id: createId(),
         role: "assistant",
@@ -158,17 +170,25 @@ export default function App() {
     }
   }
 
-  function startResize(panel: "left" | "right", event: ReactMouseEvent<HTMLButtonElement>) {
+  function handleCitationClick(evidenceId: string, response: QueryResponse) {
+    setVisibleEvidenceResponse(response);
+    setActiveEvidenceId(evidenceId);
+    setShowEvidence(true);
+  }
+
+  function startResize(event: ReactMouseEvent<HTMLButtonElement>) {
     resizeRef.current = {
-      panel,
       startX: event.clientX,
-      startWidth: panel === "left" ? leftWidth : rightWidth
+      startRatio: evidenceRatio
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }
 
-  const gridTemplateColumns = `${leftWidth}px 8px minmax(420px, 1fr) 8px ${rightWidth}px`;
+  const chatCol = showEvidence ? `minmax(0, ${(1 - evidenceRatio).toFixed(2)}fr)` : "1fr";
+  const evidenceCol = showEvidence ? `${evidenceRatio.toFixed(2)}fr` : "0px";
+  const resizeCol = showEvidence ? "8px" : "0px";
+  const gridTemplateColumns = `${chatCol} ${resizeCol} ${evidenceCol}`;
 
   return (
     <div className="app-root">
@@ -179,59 +199,69 @@ export default function App() {
           <h1>Evidence Workbench</h1>
         </div>
         <div className="top-bar-status">
+          <span>{scopeLabels[scopeMode]}</span>
+          <span>{documents.length} docs</span>
+          <span>{totalChunks} chunks</span>
           <span>{status?.runtime?.APP_MODE ?? "local"}</span>
-          <span>{status?.api?.streaming ? "SSE" : "JSON API"}</span>
         </div>
       </header>
       <div
         className="app-shell"
         data-testid="app-shell"
+        ref={shellRef}
         style={{ gridTemplateColumns }}
       >
-      <KnowledgeBasePanel
-        documents={documents}
-        status={status}
-        scopeMode={scopeMode}
-        selectedDocIds={selectedDocIds}
-        uploadFailures={uploadFailures}
-        isUploading={isUploading}
-        onScopeModeChange={setScopeMode}
-        onSelectedDocIdsChange={setSelectedDocIds}
-        onUpload={handleUpload}
-        onDelete={handleDelete}
-        onRefresh={refreshWorkspace}
-      />
-      <ResizeHandle
-        label="Resize knowledge base panel"
-        onMouseDown={(event) => startResize("left", event)}
-      />
-      <ChatPanel
-        messages={messages}
-        activeEvidenceId={activeEvidenceId}
-        isQuerying={isQuerying}
-        queryError={queryError}
-        topK={topK}
-        onTopKChange={(value) => setTopK(Math.max(1, Math.min(10, value || 1)))}
-        onSubmit={handleQuery}
-        onCitationClick={setActiveEvidenceId}
-      />
-      <ResizeHandle
-        label="Resize evidence panel"
-        onMouseDown={(event) => startResize("right", event)}
-      />
-      <EvidenceIntelligencePanel
-        response={latestResponse}
-        activeEvidenceId={activeEvidenceId}
-      />
+        <ChatPanel
+          messages={messages}
+          activeEvidenceId={activeEvidenceId}
+          isQuerying={isQuerying}
+          queryError={queryError}
+          topK={topK}
+          scopeMode={scopeMode}
+          onTopKChange={(value) => setTopK(Math.max(1, Math.min(10, value || 1)))}
+          onSubmit={handleQuery}
+          onCitationClick={handleCitationClick}
+          showMaterials={showMaterials}
+          documents={documents}
+          selectedDocIds={selectedDocIds}
+          uploadFailures={uploadFailures}
+          isUploading={isUploading}
+          onScopeModeChange={setScopeMode}
+          onSelectedDocIdsChange={setSelectedDocIds}
+          onUpload={handleUpload}
+          onDelete={handleDelete}
+          onRefresh={refreshWorkspace}
+          onToggleMaterials={() => setShowMaterials((prev) => !prev)}
+          showEvidence={showEvidence}
+          onToggleEvidence={() => setShowEvidence((prev) => !prev)}
+        />
+        {showEvidence ? (
+          <ResizeHandle
+            label="Resize evidence panel"
+            onMouseDown={(event) => startResize(event)}
+          />
+        ) : null}
+        {showEvidence ? (
+          <EvidenceIntelligencePanel
+            response={visibleEvidenceResponse ?? latestResponse}
+            activeEvidenceId={activeEvidenceId}
+            onEvidenceSelect={setActiveEvidenceId}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
+const scopeLabels: Record<ScopeMode, string> = {
+  combined: "Sample + Uploads",
+  uploaded: "Uploaded only",
+  sample: "Sample only"
+};
+
 interface ResizeState {
-  panel: "left" | "right";
   startX: number;
-  startWidth: number;
+  startRatio: number;
 }
 
 function ResizeHandle({

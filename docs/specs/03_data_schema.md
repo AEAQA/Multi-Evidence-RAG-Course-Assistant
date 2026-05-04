@@ -26,7 +26,10 @@ table
     "image_path": null,
     "caption": null,
     "nearby_text": null,
-    "table_html": null
+    "table_html": null,
+    "table_summary": null,
+    "table_markdown": null,
+    "cells": null
   }
 }
 ```
@@ -78,10 +81,30 @@ table
   "text": "Table comparing supervised learning, unsupervised learning and reinforcement learning.",
   "metadata": {
     "table_html": "<table>...</table>",
+    "table_summary": "Learning type | Input | Objective | Supervised | labeled data | prediction",
+    "table_markdown": "Learning type | Input | Objective\nSupervised | labeled data | prediction",
+    "cells": [
+      ["Learning type", "Input", "Objective"],
+      ["Supervised", "labeled data", "prediction"]
+    ],
     "caption": "Table 1. Learning paradigms."
   }
 }
 ```
+
+Stage 5B table evidence quality rules:
+
+* Table chunks may be indexed for diagnostics, but only readable table chunks
+  may become final cited evidence.
+* A table chunk is invalid for `E1`/`E2`/`E3` if it has no
+  `table_summary`, `table_markdown`, `table_html`, `cells`, `caption`,
+  `nearby_text` or readable text preview.
+* Placeholder previews such as `(no text preview)` and
+  `Table extracted from PDF.` are invalid cited evidence.
+* Very short, symbol-heavy, hash-heavy or internal-id-like table text is
+  considered low quality and remains available only in diagnostics.
+* Existing processed chunk caches may need re-ingestion to populate the newer
+  `table_summary`, `table_markdown` and `cells` metadata fields.
 
 ## Retrieval result schema
 

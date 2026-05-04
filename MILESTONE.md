@@ -16,6 +16,12 @@ Completed:
 * M7-patch1: Streamlit Evidence Workbench
 * M7-patch2: Chat-Centered RAG Study Assistant With Local Document Upload
 * M7-patch3: Three-Panel RAG Workbench With Material Scope Refinement
+* Stage 1: FastAPI Backend Layer
+* Stage 2: Prompt-Driven Grounded Answer Contract
+* Stage 3: React Three-Panel Product UI
+* Stage 4: Per-Query Retrieval Method Analysis
+* Stage 5A: React Product UI Simplification + CourseMate-Style Polish
+* Stage 5B: Product Experience Refinement
 
 Next:
 
@@ -437,3 +443,41 @@ Delivered:
 * Verified backend regression with 13 focused FastAPI/query tests, full
   `python scripts/dev.py test` passing 91 tests, `python scripts/dev.py eval`
   completing reports and `python -m compileall scripts src tests app` passing.
+
+### Stage 5B: Product Experience Refinement
+
+Status: complete.
+
+Goal: improve the React product experience with historical evidence linking,
+readable evidence previews, explicit generation latency diagnostics and a
+minimal OpenWebUI/OpenAI-style visual polish.
+
+Delivered:
+
+* Historical citation clicks now restore the clicked answer's cached
+  `/api/query` response in the Evidence Intelligence panel instead of always
+  showing the latest evidence.
+* The right panel labels which query the evidence trace belongs to and
+  highlights the selected evidence card.
+* Final evidence previews are cleaned and sentence-boundary truncated; long
+  cards support `Show more` / `Show less`.
+* Prompt evidence blocks are bounded before LLM calls to reduce prompt size
+  without adding a second evidence-refinement model call.
+* Invalid table chunks such as `(no text preview)` or
+  `Table extracted from PDF.` are filtered before answer generation and final
+  cited evidence construction.
+* Valid table evidence now requires readable summary/markdown/html/cells or a
+  readable fallback preview, and is promoted only for explicit table,
+  numerical, formula or comparison queries.
+* React/FastAPI query defaults now use Top-k 3 for a tighter evidence set.
+* Method analysis now separates `Generation`, `Retrieval total`,
+  `Pipeline build` and individual retrieval stages.
+* Frontend styling is moved toward a neutral OpenWebUI/OpenAI-like palette with
+  black primary actions, restrained green accents, smoother transitions and a
+  more polished welcome state.
+* Verified focused frontend/backend behavior with `python scripts/dev.py
+  ui-test` passing 12 mocked React tests and focused FastAPI/query/generation
+  tests passing 21 tests.
+* Verified `npm.cmd run build`, full `python scripts/dev.py test` passing 94
+  tests, `python scripts/dev.py eval` completing reports, and
+  `python -m compileall scripts src tests app` passing.

@@ -212,3 +212,76 @@ persistent layout preferences are not needed for the current demo milestone.
 Stage 5A keeps left/right widths in React state only, avoiding localStorage
 schema, reset controls and extra test cases while still allowing users to
 adjust the live view.
+
+## Decision 026: Deprioritize noisy table chunks in final evidence display
+
+Reason:
+
+Table extraction from PDFs frequently produces content that is primarily
+formatting fragments, pipe characters, box-drawing characters, internal
+identifiers or repeated symbols rather than meaningful retrieval content.
+P6 therefore filters final evidence to place text and image chunks first,
+and only includes table chunks when they pass a content-quality threshold
+(meaningful length, alpha/numeric ratio, absence of internal-ID patterns).
+Table raw content remains available in diagnostic views but does not occupy
+primary evidence cards unless the content is substantive.
+
+## Decision 027: Hide internal chunk/document IDs from user-facing UI
+
+Reason:
+
+Raw chunk_id, doc_id, hash values and stored paths are implementation
+details that degrade the product experience. P6 moves these fields into a
+collapsible Developer details section on evidence cards and removes them
+from method comparison rows. The underlying IDs remain available for
+citation-to-evidence resolution, debugging and API consumers.
+
+## Decision 028: Convert from three-column to two-column product layout
+
+Reason:
+
+The previous layout (Knowledge Base | Chat | Evidence Intelligence) caused
+horizontal crowding, especially with the resizable side panels. P6 moves
+the Knowledge Base into a collapsible materials drawer within the main
+workspace, resulting in a two-column layout (Chat Workspace | Evidence
+Intelligence). This gives the chat area more breathing room while keeping
+document management accessible via a toggle button. The Evidence
+Intelligence panel retains a wider default width for comfortable inspection
+of evidence cards, retrieval flow and method analysis.
+
+## Decision 029: Keep historical evidence linking client-side for Stage 5B
+
+Reason:
+
+Stage 5B needs users to click citations in earlier chat turns and inspect the
+matching evidence, but the current demo does not need persistent server-side
+chat history. Each assistant message already stores its full `/api/query`
+response in React state, so the Evidence Intelligence panel can switch to that
+cached response without rerunning retrieval or adding a database/session layer.
+This preserves offline-first behavior and avoids changing the FastAPI contract.
+
+## Decision 030: Improve evidence previews without a second model call
+
+Reason:
+
+Evidence cards were sometimes hard to read because raw chunks were truncated
+mid-sentence. Adding a separate LLM or small-model evidence-refinement step
+would increase latency and require another provider fallback path. Stage 5B
+therefore uses deterministic cleaning, sentence-boundary excerpts, expandable
+cards and bounded prompt evidence blocks. A model-based evidence refiner remains
+deferred unless a later milestone explicitly approves it.
+
+## Decision 031: Filter invalid table chunks from cited evidence
+
+Reason:
+
+Lightweight PDF table detection can create placeholder or formatting-only table
+chunks such as `Table extracted from PDF.` or empty/no-preview rows. These
+chunks may still be useful for diagnostics, but they are not reliable evidence
+for grounded answers. The query service now filters invalid table chunks before
+answer generation and final evidence construction, while preserving them in
+retrieval method rows. Valid table chunks are allowed only when they contain
+readable summary/HTML/markdown/cell/fallback text, and table evidence is
+promoted only for explicit table, numerical, comparison, row/column or formula
+queries. This avoids citing unreadable tables without deleting table extraction
+or user data.

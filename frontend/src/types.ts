@@ -81,6 +81,8 @@ export interface EvidenceItem {
   score: number;
   confidence?: number;
   preview: string;
+  image_url?: string | null;
+  table_summary?: string | null;
 }
 
 export interface RetrievalStage {

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { EvidenceItem } from "../types";
 import { formatScore, ScoreBar } from "./ScoreBar";
 
@@ -10,6 +11,15 @@ export function EvidenceCard({
   isActive: boolean;
   setRef: (node: HTMLElement | null) => void;
 }) {
+  const [imageError, setImageError] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const previewText = item.table_summary || item.preview || "";
+  const shouldCollapse = previewText.length > 280;
+  const visiblePreview = shouldCollapse && !isExpanded
+    ? sentenceBoundaryExcerpt(previewText, 280)
+    : previewText;
+
   return (
     <article
       ref={setRef}
@@ -19,20 +29,116 @@ export function EvidenceCard({
       <div className="evidence-topline">
         <strong>{item.evidence_id}</strong>
         <span>{item.method}</span>
-        <span>{formatScore(item.score)}</span>
+        <span>{confidenceLabel(item.confidence ?? item.score)}</span>
       </div>
-      <p>{item.preview}</p>
+
+      {item.type === "image" && item.image_url && !imageError ? (
+        <div className="evidence-thumb">
+          <img
+            src={item.image_url}
+            alt={`Evidence ${item.evidence_id} image`}
+            onError={() => setImageError(true)}
+            loading="lazy"
+          />
+        </div>
+      ) : null}
+
+      {item.type === "image" && (!item.image_url || imageError) ? (
+        <p className="evidence-fallback">
+          {item.preview
+            ? `Image evidence: ${item.preview}`
+            : `Image evidence (preview unavailable)`}
+        </p>
+      ) : null}
+
+      {item.type === "table" && item.table_summary ? (
+        <>
+          <p className="evidence-table-summary">
+            <span className="table-badge">Table summary evidence</span> {visiblePreview}
+          </p>
+        </>
+      ) : null}
+
+      {(item.type !== "image" || !item.image_url || imageError) && !(item.type === "table" && item.table_summary) && visiblePreview ? (
+        <p>{visiblePreview}</p>
+      ) : null}
+
+      {shouldCollapse ? (
+        <button
+          className="detail-toggle"
+          type="button"
+          onClick={() => setIsExpanded((prev) => !prev)}
+        >
+          {isExpanded ? "Show less" : "Show more"}
+        </button>
+      ) : null}
+
       <div className="evidence-meta">
         <span>{item.source_file}</span>
         <span>page {item.page ?? "n/a"}</span>
         <span>{displayEvidenceType(item.type)}</span>
+        {item.type === "table" && item.table_summary ? (
+          <span className="pill table-pill">Table summary evidence</span>
+        ) : null}
       </div>
-      <small>{item.chunk_id}</small>
+
       <ScoreBar value={item.confidence ?? item.score} />
+
+      <button
+        className="detail-toggle"
+        type="button"
+        onClick={() => setShowDetails((prev) => !prev)}
+      >
+        {showDetails ? "Hide developer details" : "Developer details"}
+      </button>
+      {showDetails ? (
+        <div className="developer-details">
+          <pre>
+            {JSON.stringify(
+              {
+                chunk_id: item.chunk_id,
+                doc_id: item.doc_id,
+                score: item.score,
+                confidence: item.confidence,
+                method: item.method
+              },
+              null,
+              2
+            )}
+          </pre>
+        </div>
+      ) : null}
     </article>
   );
 }
 
-export function displayEvidenceType(type?: string | null): "Text evidence" | "Image evidence" {
-  return type === "image" ? "Image evidence" : "Text evidence";
+export function displayEvidenceType(type?: string | null): string {
+  if (type === "image") return "Image evidence";
+  if (type === "table") return "Table summary evidence";
+  return "Text evidence";
+}
+
+function confidenceLabel(value: number): string {
+  if (value >= 0.75) return "high confidence";
+  if (value >= 0.35) return "medium confidence";
+  if (value > 0) return "low confidence";
+  return formatScore(value);
+}
+
+function sentenceBoundaryExcerpt(text: string, maxChars: number): string {
+  const normalized = String(text || "").split(/\s+/).filter(Boolean).join(" ");
+  if (normalized.length <= maxChars) {
+    return normalized;
+  }
+  const slice = normalized.slice(0, maxChars + 1);
+  const boundary = Math.max(
+    slice.lastIndexOf(". "),
+    slice.lastIndexOf("? "),
+    slice.lastIndexOf("! "),
+    slice.lastIndexOf("; ")
+  );
+  if (boundary > 120) {
+    return `${slice.slice(0, boundary + 1).trim()}...`;
+  }
+  return `${normalized.slice(0, maxChars).trim()}...`;
 }

@@ -55,24 +55,60 @@ class MockLLMClient:
 
 
 def _build_mock_grounded_answer(chunks: list[Chunk]) -> str:
-    claims: list[str] = []
-    for index, chunk in enumerate(chunks, start=1):
-        claim = _first_sentence(chunk.text)
-        marker = f"[E{index}]"
-        if index == 1:
-            claims.append(f"The materials indicate that {claim} {marker}.")
-        else:
-            claims.append(f"They also state that {claim} {marker}.")
-    return " ".join(claims)
+    readable = [c for c in chunks if _first_sentence(c.text) != "the selected evidence is relevant"]
+    if not readable:
+        return "The provided materials do not contain enough evidence to answer this question."
+
+    if len(readable) == 1:
+        topic = _extract_topic(readable[0].text)
+        return (
+            f"Based on the retrieved material, {_first_sentence(readable[0].text)} [E1]. "
+            f"According to this evidence from {readable[0].source_file} (page {readable[0].page}), "
+            f"the topic of {topic} is addressed directly in the course content."
+        )
+
+    topic0 = _extract_topic(readable[0].text)
+    topic1 = _extract_topic(readable[1].text)
+    return (
+        f"Based on the retrieved course materials, here is a summary of what the evidence shows. "
+        f"One source explains that {_first_sentence(readable[0].text)} [E1]. "
+        f"Another piece of evidence adds that {_first_sentence(readable[1].text)} [E2]. "
+        f"Together, these materials suggest that both {topic0} and {topic1} "
+        f"are relevant to understanding the concepts covered in the course content."
+    )
+
+
+def _extract_topic(text: str) -> str:
+    cleaned = re.sub(r"\|{2,}", " ", str(text or ""))
+    cleaned = re.sub(r"[│┃┆┇]{2,}", " ", cleaned)
+    cleaned = " ".join(cleaned.split())
+    words = cleaned.split()
+    if not words:
+        return "the course concept"
+    key = [w for w in words[:8] if len(w) > 2 and w.lower() not in {"the", "and", "for", "that", "this", "with", "from"}]
+    if not key:
+        key = words[:4]
+    topic = " ".join(key[:4])
+    return topic if len(topic) < 60 else topic[:57] + "..."
 
 
 def _first_sentence(text: str, *, max_chars: int = 180) -> str:
     normalized = " ".join(str(text or "").split())
-    if not normalized:
+    cleaned = _clean_for_sentence(normalized)
+    if not cleaned:
         return "the selected evidence is relevant"
-    match = re.search(r"(.+?[.!?])(?:\s|$)", normalized)
-    sentence = match.group(1) if match else normalized
+    match = re.search(r"(.+?[.!?])(?:\s|$)", cleaned)
+    sentence = match.group(1) if match else cleaned
     sentence = sentence.strip().rstrip(".!?;:")
     if len(sentence) > max_chars:
         sentence = sentence[: max_chars - 1].rstrip() + "..."
     return sentence
+
+
+def _clean_for_sentence(text: str) -> str:
+    text = re.sub(r"\|{2,}", " ", text)
+    text = re.sub(r"[│┃┆┇┊┋╎╏╌╍]{2,}", " ", text)
+    text = re.sub(r"([a-f0-9]{32,})", "", text)
+    text = re.sub(r"\bpage_\d+_(text|image|table)_\d+\b", "", text)
+    text = " ".join(text.split())
+    return text.strip()

@@ -67,6 +67,10 @@
 * Stage 5A React panel resize handles for Knowledge Base and Evidence Intelligence.
 * CourseMate-style React visual polish with a slim top bar, softer rounded panels, lighter chat bubbles and blue/cyan accents.
 * Split Evidence Intelligence UI into smaller evidence card, retrieval flow, method analysis and score bar components.
+* Stage 5B historical evidence linking for React chat citations.
+* Stage 5B sentence-boundary evidence preview tests and current-query latency diagnostics.
+* Stage 5B table evidence quality filter tests for invalid placeholder tables
+  and valid table-intent queries.
 
 ### Changed
 
@@ -116,6 +120,28 @@
   evaluation remains available through the API, reports and `scripts/dev.py eval`.
 * Frontend evidence labels now treat `table` and unknown chunk types as
   text-like evidence while preserving `image` as image evidence.
+* Product UI layout refactored from three-column (Knowledge Base | Chat | Evidence Intelligence) to two-column (Chat Workspace | Evidence Intelligence) with a collapsible Materials drawer.
+* Evidence cards now hide internal chunk_id/doc_id behind a "Developer details" toggle and display image thumbnails for image evidence chunks.
+* Table chunks are deprioritized in final evidence; only tables with meaningful content show as "Table summary evidence" with a visible badge.
+* EvidenceReference schema now includes image_url and table_summary for richer frontend display.
+* Answer text is now cleaned of hash-like patterns, pipe characters, internal chunk IDs, and OCR noise before display.
+* CitationText now shows unresolved citation warnings when answer markers do not map to returned evidence.
+* RetrievalFlow visualization enhanced with stage contribution counts, final-stage badge, rank movement analysis, and "relative score within method" labels.
+* Evidence Intelligence header now includes quick evidence navigation buttons (E1/E2/E3) that scroll to matching cards.
+* Grounded answer prompt now requests 2-4 paragraph structured answers with definition, explanation, and evidence connection.
+* Mock LLM answers now produce multi-sentence natural-language prose with linked citations.
+* Prompt builder provides richer context for table and image chunk types.
+* Right-side Evidence Intelligence panel default width increased to 400px (max 580px) for better visualization space.
+* React citation clicks now switch Evidence Intelligence to the clicked message's cached response instead of always using the latest answer.
+* Final evidence previews now use cleaned sentence-boundary excerpts, with frontend Show more / Show less controls for long evidence.
+* Per-query method analysis now separates Generation, Retrieval total, Pipeline build and individual retrieval stage timings.
+* Prompt builder bounds evidence text before provider calls to reduce prompt size while preserving grounded citation behavior.
+* React styling moved from blue/cyan CourseMate polish toward a neutral OpenWebUI/OpenAI-like palette with black primary actions and restrained green accents.
+* Welcome empty state now includes starter research prompts.
+* Query defaults now use Top-k 3 in React, FastAPI query requests and the
+  app-service query path.
+* Newly ingested table chunks can store `table_summary`, `table_markdown` and
+  `cells` metadata in addition to `table_html`.
 
 ### Known cleanup notes
 
@@ -125,6 +151,12 @@
 
 ### Fixed
 
+* Invalid table chunks with placeholders such as `(no text preview)` or
+  `Table extracted from PDF.` are filtered before answer generation and cannot
+  become final cited evidence.
+* Low-quality table chunks remain available in retrieval diagnostics but are
+  hidden from primary React evidence cards unless they have readable content.
 * Resolved Conda YAML parsing failure caused by invalid list syntax in `environment.yml`.
 * Fixed Streamlit/PyArrow dataframe conversion for image metadata by rendering `bbox` as a string instead of mixing list and scalar values.
 * Verified Method Comparison has non-empty BM25, Dense, Fusion and Reranked groups for the sample query path.
+* Removed corrupted mojibake copy from Stage 5B frontend strings and method descriptions.

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { Citation, QueryResponse, RetrievalRow } from "../types";
 import { displayEvidenceType } from "./EvidenceCards";
-import { formatScore, ScoreBar } from "./ScoreBar";
+import { ScoreBar } from "./ScoreBar";
 
 export const methodLabels = {
   bm25: "BM25",
@@ -13,10 +13,7 @@ export const methodLabels = {
 export type MethodKey = keyof typeof methodLabels;
 
 export function MethodRows({ rows }: { rows: RetrievalRow[] }) {
-  const maxScore = useMemo(
-    () => Math.max(1, ...rows.map((row) => Math.abs(row.score))),
-    [rows]
-  );
+  const maxRank = useMemo(() => Math.max(1, rows.length), [rows]);
 
   if (rows.length === 0) {
     return <div className="empty-card">No rows returned for this method.</div>;
@@ -27,16 +24,16 @@ export function MethodRows({ rows }: { rows: RetrievalRow[] }) {
       {rows.map((row) => (
         <article className="method-row" key={`${row.method}-${row.chunk_id}-${row.rank}`}>
           <div className="method-row-head">
-            <strong>#{row.rank}</strong>
+            <strong className={`rank-badge rank-${Math.min(row.rank, 3)}`}>#{row.rank}</strong>
             <span>{row.source_file}</span>
-            <span>{formatScore(row.score)}</span>
           </div>
           <p>{row.preview}</p>
           <div className="evidence-meta compact">
             <span>{displayEvidenceType(row.type)}</span>
-            <span>{row.chunk_id}</span>
           </div>
-          <ScoreBar value={Math.abs(row.score) / maxScore} />
+          <div className="rank-track" aria-hidden="true">
+            <span className="rank-track-fill" style={{ width: `${Math.max(4, (1 - row.rank / (maxRank + 1)) * 100)}%` }} />
+          </div>
         </article>
       ))}
     </div>
@@ -53,6 +50,7 @@ export function PerQueryAnalysis({ response }: { response: QueryResponse }) {
   );
   const latencyRows = getLatencyRows(response);
   const overlapRows = getOverlapRows(response);
+  const rankMovement = getRankMovement(response);
 
   return (
     <div className="analysis-panel" role="region" aria-label="Per-query method analysis">
@@ -99,6 +97,25 @@ export function PerQueryAnalysis({ response }: { response: QueryResponse }) {
               <ScoreBar value={row.value} />
             </div>
           ))}
+        </article>
+
+        <article className="analysis-card">
+          <h4>Rank movement</h4>
+          {rankMovement.length > 0 ? (
+            rankMovement.map((item) => (
+              <div className="move-chip" key={item.evidence_id}>
+                <strong>{item.evidence_id}</strong>
+                <span>
+                  from BM25 {formatRank(item.bm25Rank)} / Dense {formatRank(item.denseRank)} to Final #{item.finalRank}
+                </span>
+                <span className={`move-badge ${item.promoted ? "promoted" : ""}`}>
+                  {item.promoted ? "promoted" : "matched"}
+                </span>
+              </div>
+            ))
+          ) : (
+            <span className="subtle">No rank movement data available.</span>
+          )}
         </article>
 
         <article className="analysis-card">
@@ -212,10 +229,13 @@ function getCitationCoverage(answerText: string, citations: Citation[]) {
 
 function getLatencyRows(response: QueryResponse) {
   const rows = [
+    ["Pipeline build", response.timing.pipeline_build ?? 0],
     ["BM25", response.timing.bm25 ?? findStageLatency(response, "BM25")],
     ["Dense", response.timing.dense ?? findStageLatency(response, "Dense")],
     ["Fusion", response.timing.fusion ?? findStageLatency(response, "Fusion")],
     ["Reranker", response.timing.reranker ?? findStageLatency(response, "Reranker")],
+    ["Retrieval total", response.timing.retrieval_total ?? 0],
+    ["Generation", response.timing.generation ?? findStageLatency(response, "Final Evidence")],
     ["Total", response.timing.total ?? 0]
   ] as Array<[string, number]>;
   const max = Math.max(1, ...rows.map(([, ms]) => ms));
@@ -265,4 +285,42 @@ function countValues(values: string[]): Array<[string, number]> {
     return acc;
   }, {});
   return Object.entries(counts).sort((left, right) => right[1] - left[1]);
+}
+
+interface RankMovementItem {
+  evidence_id: string;
+  bm25Rank: number;
+  denseRank: number;
+  finalRank: number;
+  promoted: boolean;
+}
+
+function getRankMovement(response: QueryResponse): RankMovementItem[] {
+  const final = response.final_evidence;
+  if (!final.length) return [];
+
+  const bm25RankMap = Object.fromEntries(
+    response.retrieval.bm25.map((row, index) => [row.chunk_id, index + 1])
+  );
+  const denseRankMap = Object.fromEntries(
+    response.retrieval.dense.map((row, index) => [row.chunk_id, index + 1])
+  );
+
+  return final.map((item, index) => {
+    const bm25Rank = bm25RankMap[item.chunk_id] ?? 0;
+    const denseRank = denseRankMap[item.chunk_id] ?? 0;
+    const finalRank = index + 1;
+    const promoted = bm25Rank === 0 || bm25Rank > 5 || denseRank === 0 || denseRank > 5;
+    return {
+      evidence_id: item.evidence_id,
+      bm25Rank,
+      denseRank,
+      finalRank,
+      promoted
+    };
+  });
+}
+
+function formatRank(rank: number): string {
+  return rank > 0 ? `#${rank}` : "not found";
 }

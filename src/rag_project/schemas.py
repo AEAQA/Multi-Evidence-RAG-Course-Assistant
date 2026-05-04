@@ -29,6 +29,9 @@ class ChunkMetadata(BaseModel):
     caption: str | None = None
     nearby_text: str | None = None
     table_html: str | None = None
+    table_summary: str | None = None
+    table_markdown: str | None = None
+    cells: list[list[str | None]] | None = None
 
 
 class Chunk(BaseModel):
@@ -61,6 +64,8 @@ class EvidenceReference(BaseModel):
     score: float
     confidence: float
     preview: str
+    image_url: str | None = None
+    table_summary: str | None = None
     chunk: Chunk
 
 

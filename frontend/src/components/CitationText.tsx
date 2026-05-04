@@ -27,6 +27,11 @@ export function CitationText({
     resolvedIds.add(item.evidence_id);
   }
 
+  const allMarkers = Array.from(
+    new Set((text.match(/\[E\d+\]/g) ?? []).map((marker) => marker.slice(1, -1)))
+  );
+  const unresolved = allMarkers.filter((id) => !resolvedIds.has(id));
+
   const parts = text.split(MARKER_PATTERN);
   return (
     <>
@@ -40,7 +45,15 @@ export function CitationText({
         }
         const evidenceId = markerMatch[1];
         if (!resolvedIds.has(evidenceId)) {
-          return <span key={`${part}-${index}`}>{part}</span>;
+          return (
+            <span
+              key={`${part}-${index}`}
+              className="citation-anchor-unresolved"
+              title={`Citation ${evidenceId} is not linked to returned evidence`}
+            >
+              [{evidenceId}]
+            </span>
+          );
         }
         return (
           <button
@@ -58,6 +71,12 @@ export function CitationText({
           </button>
         );
       })}
+      {unresolved.length > 0 ? (
+        <div className="notice warning citation-warning">
+          Unresolved citation{unresolved.length > 1 ? "s" : ""}:{" "}
+          {unresolved.map((id) => `[${id}]`).join(", ")} - evidence may be missing.
+        </div>
+      ) : null}
     </>
   );
 }

@@ -360,7 +360,7 @@ POST /api/evaluation/run
 ```json
 {
   "query": "What does reranking do?",
-  "top_k": 5,
+  "top_k": 3,
   "scope": {
     "mode": "combined",
     "selected_doc_ids": []
@@ -391,6 +391,19 @@ Upload behavior:
 * unsupported or failed files are returned in `failed`;
 * one bad file must not crash the whole upload request;
 * uploaded documents and chunk caches remain under ignored local storage.
+
+Stage 5B table evidence quality:
+
+* invalid table chunks are retained in retrieval diagnostics but filtered out
+  of answer-generation candidates and `final_evidence`;
+* invalid table chunks include placeholder-only rows such as
+  `Table extracted from PDF.` or `(no text preview)`, very short/noisy table
+  text, repeated separator content, hashes and internal IDs;
+* valid table evidence is only promoted when the query asks about tables,
+  formulas, comparisons, numerical data, columns, rows or equivalent Chinese
+  terms;
+* if only invalid table chunks are retrieved, `/api/query` should return
+  `answer.grounding_status = "insufficient_evidence"` rather than citing them.
 
 Test isolation:
 
@@ -473,3 +486,26 @@ Frontend assumptions:
 * inline markers in `answer.text` are resolved through
   `citations[].evidence_id` and `final_evidence[].evidence_id`;
 * if a marker cannot be resolved, React leaves the marker visible as plain text.
+
+## Stage 5B query response usage
+
+Stage 5B keeps the `/api/query` wire shape stable. The React client uses the
+same response object for both the live answer and historical citation
+inspection.
+
+Frontend behavior:
+
+* every assistant message stores its own `QueryResponse`;
+* clicking a citation in an older message switches the Evidence Intelligence
+  panel to that cached response;
+* no API call is made for historical evidence inspection.
+
+Evidence and timing expectations:
+
+* `final_evidence[].preview` should be a readable cleaned excerpt, preferably
+  truncated on a sentence boundary rather than a hard mid-word cut;
+* `final_evidence[].image_url` and `final_evidence[].table_summary` remain
+  optional display helpers;
+* `timing.generation`, `timing.retrieval_total`, `timing.pipeline_build` and
+  `timing.total` allow the UI to distinguish retrieval latency from final
+  answer-generation latency.

@@ -146,6 +146,33 @@ Stage 3: React three-panel product UI complete
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test` passes 91 Python tests after Stage 5A.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 5A and rewrites retrieval metrics, latency metrics and error cases reports.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 5A.
+* Stage 5B product experience refinement is implemented.
+* Product UI layout refactored from three-column to two-column (Chat Workspace | Evidence Intelligence) with collapsible Materials drawer.
+* Historical citation clicks in React now restore the clicked assistant turn's cached query response in the Evidence Intelligence panel.
+* Evidence Intelligence labels which query its evidence trace belongs to, so older citations do not appear to reference the latest answer.
+* Final evidence previews are cleaned and truncated on sentence boundaries, and long cards support Show more / Show less.
+* Per-query method analysis separates Generation, Retrieval total, Pipeline build and individual retrieval stage timings.
+* The React welcome state now includes starter research questions and uses a neutral OpenWebUI/OpenAI-like visual style with black primary actions and restrained green accents.
+* Evidence cards hide internal chunk_id/doc_id behind Developer details toggle; image chunks show thumbnails via /api/static/images.
+* Table chunks deprioritized in final evidence; only meaningful tables shown as Table summary evidence.
+* Invalid table chunks with placeholders such as `(no text preview)` or `Table extracted from PDF.` are filtered before answer generation and cannot become `E1`/`E2`/`E3`.
+* Table chunks now carry optional `table_summary`, `table_markdown` and `cells` metadata when newly ingested; older processed chunk caches need re-ingest/re-upload to gain these fields.
+* React/FastAPI query defaults now use Top-k 3 for a tighter evidence set and lower default generation load.
+* Answer text cleaned of hash patterns, pipe characters, internal IDs and OCR noise.
+* CitationText shows unresolved citation warnings when markers do not map to evidence.
+* RetrievalFlow shows stage contribution counts, Final badge, and relative score within method labels.
+* Evidence Intelligence header includes quick evidence nav buttons (E1/E2/E3) that scroll to matching cards.
+* Rank movement analysis shows BM25/Dense → Final transitions with promotion badges.
+* Grounded answer prompt requests 2-4 paragraph structured answers; mock LLM produces multi-sentence prose.
+* Prompt builder provides richer context for table and image chunk types.
+* EvidenceReference schema now includes image_url and table_summary fields.
+* FastAPI now serves static images under /api/static/images.
+* 21 focused backend regression tests (FastAPI + query + generation) pass after Stage 5B table evidence filtering.
+* Full Python test suite passes with 94 tests after Stage 5B table evidence filtering.
+* Frontend build passes after Stage 5B.
+* React mocked frontend tests pass with 12 tests after Stage 5B.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 5B table evidence filtering and rewrites retrieval metrics, latency metrics and error cases reports.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 5B.
 
 ## What is missing
 

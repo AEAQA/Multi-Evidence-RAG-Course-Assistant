@@ -514,3 +514,52 @@ Verification:
   child-process execution.
 * `python scripts/dev.py test` and `python scripts/dev.py eval` continue to
   pass because the offline evaluation pipeline was preserved.
+
+## Stage 5B Product Experience Refinement
+
+The React product UI now supports historical evidence linking and a quieter
+OpenWebUI/OpenAI-style visual direction.
+
+Historical citation behavior:
+
+* each assistant message keeps its own `/api/query` response in the current
+  browser session;
+* clicking `[E1]` in an older answer switches the right Evidence Intelligence
+  panel to that answer's cached evidence;
+* the matching evidence card is highlighted and scrolled into view;
+* no backend query is rerun for historical citation inspection.
+
+Evidence display:
+
+* final evidence previews are cleaned and truncated on sentence boundaries;
+* long evidence cards support `Show more` / `Show less`;
+* internal chunk/document IDs remain hidden in `Developer details`;
+* image evidence uses thumbnails when available and falls back to caption or
+  nearby text;
+* table evidence is shown only when a meaningful table summary exists.
+* invalid table evidence must not be shown as a primary evidence card; this
+  includes placeholder-only content such as `(no text preview)` or
+  `Table extracted from PDF.`;
+* raw table fields and internal IDs belong in diagnostics or Developer details,
+  not the user-facing evidence body.
+
+Per-query diagnostics:
+
+* method analysis now distinguishes `Generation`, `Retrieval total`,
+  `Pipeline build` and individual retrieval stages;
+* this makes LLM/provider latency visible instead of implying that retrieval
+  methods are slow.
+
+Visual direction:
+
+* neutral paper background, white panels, black primary actions and restrained
+  green accents;
+* smoother transitions for panels, buttons, materials drawer and analysis
+  toggles;
+* upgraded welcome state with starter research questions;
+* `prefers-reduced-motion` is respected.
+
+Default query depth:
+
+* React/FastAPI query defaults use Top-k 3 for a tighter evidence set and lower
+  answer-generation prompt cost.

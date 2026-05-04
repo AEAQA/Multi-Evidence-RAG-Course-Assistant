@@ -301,6 +301,53 @@ Vite/esbuild, focused FastAPI/query regression passing 13 tests,
 `python scripts/dev.py test` passing 91 tests, `python scripts/dev.py eval`
 completing reports, and `python -m compileall scripts src tests app` passing.
 
+## Stage 5B: Product Experience Refinement
+
+Stage 5B refines the React product experience while preserving the FastAPI
+contract and the existing RAG core.
+
+Rules:
+
+* historical assistant messages must keep their own `QueryResponse` in the
+  current React session;
+* clicking a citation in an older answer must switch the Evidence Intelligence
+  panel to that answer's cached evidence and highlight the matching card;
+* evidence previews should be readable cleaned excerpts, not hard mid-word
+  truncations;
+* do not add another LLM or small-model evidence-refinement call by default;
+* method analysis must distinguish retrieval latency from answer-generation
+  latency;
+* visual polish should move toward a neutral OpenWebUI/OpenAI-like product
+  style with restrained green accents, black primary actions and smooth
+  transitions.
+
+Implementation status:
+
+* Stage 5B adds a `visibleEvidenceResponse` state in React so the right panel
+  can display cached evidence from historical turns.
+* Evidence cards now support expandable long previews.
+* Invalid table chunks are filtered out before answer generation and before
+  `final_evidence` is built, while remaining visible in retrieval diagnostics.
+* Valid table chunks are only promoted for table/formula/comparison/numerical
+  queries.
+* React/FastAPI defaults now use Top-k 3 for a tighter evidence set.
+* `QueryService` and the FastAPI adapter return cleaned sentence-boundary
+  evidence previews without changing response field names.
+* The prompt builder bounds evidence text before provider calls to reduce
+  generation latency pressure.
+* Per-query method analysis displays `Generation`, `Retrieval total`,
+  `Pipeline build` and individual retrieval stage timings.
+* The welcome state now includes starter research questions and the UI palette
+  is more neutral/minimal.
+
+Stage 5B verification note:
+
+Stage 5B is verified with `python scripts/dev.py ui-test` passing 12 mocked
+React tests, focused FastAPI/query/generation regression passing 21 tests,
+`npm.cmd run build` passing after sandbox escalation for Vite/esbuild,
+`python scripts/dev.py test` passing 94 tests, `python scripts/dev.py eval`
+completing reports, and `python -m compileall scripts src tests app` passing.
+
 ## Stage 5: Demo Packaging
 
 Final delivery should include:

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from rag_project.app_services.corpus_service import (
@@ -59,7 +60,7 @@ class QueryRequest(BaseModel):
     """RAG query request contract for the product UI."""
 
     query: str = Field(min_length=1)
-    top_k: int = 5
+    top_k: int = 3
     scope: QueryScopeRequest = Field(default_factory=QueryScopeRequest)
 
 
@@ -96,6 +97,14 @@ def create_app(
     )
     app.state.config = runtime_config
     app.state.paths = runtime_paths
+
+    images_dir = runtime_paths.image_output_dir
+    if images_dir.exists():
+        app.mount(
+            "/api/static/images",
+            StaticFiles(directory=str(images_dir)),
+            name="static_images",
+        )
 
     @app.get("/api/health")
     def health() -> dict[str, Any]:
@@ -254,7 +263,21 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
             for citation in state.answer.citations
         ],
         "final_evidence": [
-            evidence.model_dump(mode="json") for evidence in state.final_evidence
+            {
+                "evidence_id": evidence.evidence_id,
+                "chunk_id": evidence.chunk_id,
+                "doc_id": evidence.doc_id,
+                "source_file": evidence.source_file,
+                "page": evidence.page,
+                "type": evidence.type,
+                "method": evidence.method,
+                "score": evidence.score,
+                "confidence": evidence.confidence,
+                "preview": evidence.preview,
+                "image_url": evidence.image_url,
+                "table_summary": evidence.table_summary,
+            }
+            for evidence in state.final_evidence
         ],
         "retrieval_trace": [
             stage.model_dump(mode="json") for stage in state.retrieval_trace
@@ -308,9 +331,20 @@ def _result_rows(results: list[RetrievalResult]) -> list[dict[str, Any]]:
     return rows
 
 
-def _preview(text: str, *, max_chars: int = 220) -> str:
+def _preview(text: str, *, max_chars: int = 360) -> str:
     normalized = " ".join(str(text or "").split())
-    return normalized[:max_chars]
+    if len(normalized) <= max_chars:
+        return normalized
+    window = normalized[: max_chars + 1]
+    boundary = max(
+        window.rfind(". "),
+        window.rfind("? "),
+        window.rfind("! "),
+        window.rfind("; "),
+    )
+    if boundary > max_chars // 3:
+        return window[: boundary + 1].strip() + "..."
+    return normalized[:max_chars].rstrip() + "..."
 
 
 def _summary_from_metric_csv(path: Path) -> dict[str, dict[str, float]]:

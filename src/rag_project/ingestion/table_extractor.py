@@ -95,6 +95,9 @@ def _table_to_chunk(
         metadata=ChunkMetadata(
             bbox=_table_bbox(table),
             table_html=_rows_to_html(normalized_rows),
+            table_markdown=_rows_to_markdown(normalized_rows),
+            table_summary=_rows_to_summary(normalized_rows),
+            cells=normalized_rows,
             caption="Table extracted from PDF.",
         ),
     )
@@ -115,6 +118,18 @@ def _rows_to_html(rows: list[list[str]]) -> str:
         cells = "".join(f"<td>{html.escape(cell)}</td>" for cell in row)
         rendered_rows.append(f"<tr>{cells}</tr>")
     return f"<table>{''.join(rendered_rows)}</table>"
+
+
+def _rows_to_markdown(rows: list[list[str]]) -> str:
+    return "\n".join(" | ".join(row) for row in rows)
+
+
+def _rows_to_summary(rows: list[list[str]], *, max_chars: int = 360) -> str:
+    text = " ".join(" | ".join(row) for row in rows)
+    normalized = " ".join(text.split())
+    if len(normalized) <= max_chars:
+        return normalized
+    return normalized[:max_chars].rstrip() + "..."
 
 
 def _table_bbox(table: Any) -> list[float] | None:
