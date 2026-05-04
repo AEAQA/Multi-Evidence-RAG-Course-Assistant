@@ -18,8 +18,8 @@ venv/
 env/
 
 # Local data and generated reports
-data*
-reports*
+data/*
+reports/*
 
 # Model/cache artifacts
 *.pt
