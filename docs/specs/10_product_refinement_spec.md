@@ -1,10 +1,10 @@
-# Stage 5B Product Experience Refinement
+# Product Experience Refinement Spec
 
 ## Status
 
 Implemented on the `react-fastapi-product-ui` branch.
 
-Stage 5B continues the React/FastAPI product migration without rewriting the
+This spec covers the product experience refinement work that was completed across multiple development stages.
 RAG core. Streamlit remains a backup UI. The React UI remains a RAG evidence
 workbench, not a generic chatbot.
 

@@ -305,7 +305,7 @@ through the right-side Evidence Intelligence panel.
 
 ## React/FastAPI Product UI Target
 
-The product UI target is a React three-panel RAG workbench inspired by `frontend_reference/CourseMate.jsx`. The reference is visual and interaction guidance only; do not copy it directly.
+The product UI target was originally inspired by a reference CourseMate project (not committed). The reference provided visual and interaction guidance only; it was not copied directly.
 
 Required layout:
 

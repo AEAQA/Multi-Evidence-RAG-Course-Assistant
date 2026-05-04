@@ -1,4 +1,4 @@
-﻿# React/FastAPI Product UI Migration Plan
+# React/FastAPI Product UI Migration Plan
 
 ## Purpose
 
@@ -25,19 +25,9 @@ Core product behavior:
 
 Before implementation, read:
 
-```text
-AGENTS.md
-PROMPTS.md
-docs/specs/04_api_contract.md
-docs/specs/06_ui_spec.md
-docs/specs/09_react_fastapi_product_ui_plan.md
-frontend_reference/CourseMate.jsx
-frontend_reference/rag_service/src/app/main.py
-frontend_reference/rag_service/src/rag/rag_engine.py
-frontend_reference/docs/
-```
-
-Use `frontend_reference/` as a reference only. Do not copy old code directly. Preserve this project's retrieval comparison and evidence-grounding requirements.
+The original design reference (CourseMate project, not committed to this repository) provided visual
+and interaction guidance for the three-panel layout. The React UI was built independently, preserving
+this project's retrieval comparison and evidence-grounding requirements.
 
 ## Stage 0: Documentation And Migration Contract
 
@@ -413,5 +403,5 @@ Future implementation must include:
 * deleting the Streamlit backup;
 * rewriting retrieval algorithms;
 * introducing Chroma, LangChain, Docker, ASR/TTS, cloud vector databases, or persistent multi-user auth;
-* copying frontend_reference code directly;
+* copying reference project code directly;
 * making the product a generic LLM chatbot without evidence and retrieval comparison.

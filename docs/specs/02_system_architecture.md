@@ -167,7 +167,7 @@ Streamlit upload
 ```
 
 No FastAPI server, Chroma database, Docker service, or React frontend is added
-in M7-patch2. The `frontend_reference/rag_service` project is used only as a UX
+in M7-patch2. A reference CourseMate project (not committed) was consulted as a UX
 reference for document lists, status badges and chat-centered interaction.
 
 Uploaded data is local demonstration data and is ignored by git. The registry
@@ -197,4 +197,4 @@ React product UI
 
 FastAPI must wrap the current `src/rag_project` services instead of rewriting the RAG core. The migration keeps BM25, fake/lightweight dense retrieval, hybrid fusion, reranker comparison, grounded generation, evaluation metrics, provider fallback, and offline-first tests.
 
-The reference project under `frontend_reference/` should be read before implementation. It is a reference for three-panel product interaction and FastAPI organization, not a source to copy directly.
+A reference CourseMate project was consulted before implementation.

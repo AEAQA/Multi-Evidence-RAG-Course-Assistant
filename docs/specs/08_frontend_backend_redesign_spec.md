@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This spec records the post-M7 review of the current Streamlit dashboard against
-the `frontend_reference/` CourseMate project. It defines a more user-friendly
+This spec records the post-M7 review of the Streamlit dashboard against
+a reference CourseMate project (not committed to this repository). It defines a more user-friendly
 interface and backend organization for the final demo phase without copying the
 reference project 1:1.
 
@@ -380,7 +380,7 @@ Migration rules:
 * Streamlit remains a backup implementation.
 * FastAPI is an interface layer over existing app services.
 * React implements the product-like three-panel workbench.
-* `frontend_reference/` is required reading before implementation, but old code must not be copied directly.
+* A reference CourseMate project (not committed) was consulted before implementation, but old code must not be copied directly.
 * Answers should become prompt-driven natural language with inline citations, not retrieval-result concatenation.
 * The right-side Evidence Intelligence panel must continue to expose retrieval method comparison and evaluation signals.
 

@@ -1,207 +1,167 @@
-# Voice-enabled Image-aware RAG Study Assistant
+# Evidence-Grounded RAG Study Assistant
 
-Offline-first Data Science in Practice project comparing BM25, dense retrieval, hybrid fusion, reranking, and grounded RAG answer generation over course materials.
+**Evidence Workbench** — A retrieval-augmented question answering system that compares BM25 lexical retrieval, dense semantic retrieval, hybrid fusion, and LLM-based reranking before generating grounded answers from retrieved evidence. Built for the IEMS5726 Data Science in Practice course.
 
-This can be described as a RAG-based study assistant or RAG chatbot, but it is
-not a generic LLM chatbox. The core project compares retrieval strategies and
-uses retrieved evidence before generating answers with citations.
+This is not a generic chatbot. It is a data science system demonstrating the full RAG pipeline: PDF ingestion, multi-strategy retrieval, evidence filtering, grounded generation with inline citations, offline evaluation, and a deployable product UI.
 
-## Current Status
+## Core Features
 
-Milestone 7 optional SiliconFlow API mode is implemented. M7-patch2 adds a
-chat-centered Streamlit RAG Study Chat with local document upload while
-preserving offline/mock defaults.
+- **Multi-format document ingestion** — PDF, TXT, MD loaded via PyMuPDF with text, image, and table extraction
+- **Four retrieval strategies compared side-by-side** — BM25 (lexical), Dense (semantic, SHA256 fake vectors offline), RRF Hybrid Fusion, Reranker
+- **Intent-aware query planning** — Deterministic router + optional SiliconFlow planner; multi-intent decomposition
+- **Grounded answer generation** — Top-K evidence used with inline `[E1][E2][E3]` citation markers; refused when evidence insufficient
+- **Citation-to-evidence linking** — Click inline [E1] to scroll and highlight matching evidence card
+- **PDF Open Page** — Click evidence source to open PDF at exact page via browser
+- **Evidence quality filtering** — Table placeholder chunks and OCR noise detected and removed
+- **Evidence Intelligence Panel** — Cited evidence cards, Retrieval Flow, Method Comparison, per-query diagnostics
+- **Historical citation linking** — Clicking citations in older messages restores that turn's cached evidence
+- **Collapsible Materials Drawer** — Upload and select knowledge-base scope
+- **MethodHowItWorks** — Educational explanations for BM25/Dense/Fusion/Reranker
+- **Two-column layout** — Chat Workspace (left) | Evidence Intelligence (right)
+- **Offline-first** — Fully functional in local mode with no API keys, GPU, or network
+- **Optional SiliconFlow API mode** — Drop-in real LLM and reranker
+- **Streamlit backup preserved** — Original MVP dashboard at `app/streamlit_app.py`
 
-## Environment
+## Tech Stack
 
-Create the recommended Conda environment:
+| Layer | Technology |
+|---|---|
+| Frontend (product) | Vite + React 18 + TypeScript, hand-rolled CSS |
+| Frontend (backup) | Streamlit (preserved) |
+| Backend API | FastAPI + uvicorn |
+| RAG Core | Pure Python, offline-first |
+| BM25 | Pure Python BM25 implementation |
+| Dense Retrieval | SHA256 hashing vectors (offline) / SBERT (optional) |
+| Fusion | Reciprocal Rank Fusion (RRF) |
+| Reranker | Mock (offline) / SiliconFlow API (optional) |
+| LLM Generation | Mock (offline) / SiliconFlow API (optional) |
+| Query Planning | Deterministic router + optional SiliconFlow planner |
+| PDF Ingestion | PyMuPDF (text, image, table extraction) |
+| Testing | pytest (103 Python tests), Vitest (13 React tests) |
+| Evaluation | Offline Recall@k, MRR, NDCG pipeline |
+| Environment | Miniconda, Python 3.11 |
+
+## Quick Start
+
+### 1. Create environment
 
 ```bash
 conda env create -f environment.yml
 conda activate rag-study-assistant
 ```
 
-Local/offline mode is the default and does not require API keys.
-
-## Commands
+### 2. Configure
 
 ```bash
-python scripts/dev.py info
-python scripts/dev.py test
-python scripts/dev.py run
-python scripts/dev.py eval
-python scripts/dev.py api-smoke
+cp .env.example .env
 ```
 
-If `conda run` has encoding issues on Windows, call the environment Python directly:
+Default local/offline mode requires no API keys. Keep `APP_MODE=local`.
 
-```powershell
-C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m pytest --basetemp pytest_runs\manual
-```
-
-## Project Layout
-
-```text
-app/                 Streamlit frontend
-src/rag_project/     Core backend package
-tests/               Unit and integration tests
-data/samples/        Public sample documents
-data/eval/           Evaluation queries
-data/raw/            Local private raw data, ignored by git
-reports/             Evaluation reports and figures
-docs/specs/          SDD project specifications
-```
-
-## Implemented Baselines
-
-Current local/offline retrieval methods:
-
-```text
-BM25-only
-Fake dense-only
-BM25 + dense reciprocal rank fusion
-BM25 + dense fusion + mock reranker
-```
-
-## Grounded Generation
-
-Current local/offline answer generation:
-
-```text
-Top-k retrieved evidence
-→ prompt with untrusted-context warning
-→ mock LLM answer
-→ citations + evidence list + retrieval explanation
-```
-
-If no evidence is available, the generator returns an insufficient-evidence response instead of inventing an answer.
-
-## Evaluation
-
-Run the local/offline retrieval evaluation:
+### 3. Start backend
 
 ```bash
-python scripts/dev.py eval
+python scripts/dev.py api
+# → http://localhost:8000, Swagger docs at /docs
 ```
 
-The evaluator reads `data/eval/queries.jsonl`, compares BM25, fake dense, fusion, and reranked retrieval, then writes:
+### 4. Start frontend
 
-```text
-reports/evaluation/retrieval_metrics.csv
-reports/evaluation/latency_metrics.csv
-reports/evaluation/error_cases.md
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:5173 (proxies to backend)
 ```
 
-## Dashboard
-
-Run the Streamlit MVP dashboard:
+### 5. (Alternative) Streamlit backup
 
 ```bash
 python scripts/dev.py run
 ```
 
-The app includes:
+## Key Commands
+
+```bash
+python scripts/dev.py info          # Environment status
+python scripts/dev.py api           # FastAPI backend
+python scripts/dev.py run           # Streamlit backup
+python scripts/dev.py test          # All Python tests (103)
+python scripts/dev.py ui-test       # React tests (13)
+python scripts/dev.py eval          # Offline evaluation
+python scripts/dev.py api-smoke     # SiliconFlow smoke check
+python scripts/dev.py clean         # Remove artifacts
+```
+
+## Project Structure
+
+```
+app/                        Streamlit backup
+src/rag_project/            Core backend
+  api/                      FastAPI adapter
+  app_services/             QueryService, CorpusService, ProviderStatus
+  retrieval/                BM25, Dense, Fusion, Reranker, Pipeline
+  generation/               PromptBuilder + LLM clients
+  query_planning/           Intent planner (deterministic + SiliconFlow)
+  ingestion/                PDF/text/image/table loading
+  evaluation/               Offline evaluation pipeline
+frontend/src/               React product UI
+  components/               10 React components
+  api/client.ts             Typed API client
+tests/                      Unit tests
+data/eval/                  Evaluation queries (queries.jsonl)
+docs/                       Documentation and specs
+scripts/dev.py              Cross-platform command wrapper
+```
+
+## How It Works
 
 ```text
-RAG Study Chat
-Evaluation Dashboard
+User Query
+ → Intent Planner (route + decompose)
+ → Per-sub-question Retrieval (BM25 + Dense → Fusion → Reranker)
+ → Evidence Filtering (table quality, type preference)
+ → Answer Generation (grounded prompt + inline citations)
+ → Citation Mapping → UI Display
 ```
-
-The RAG Study Chat lets you upload `.txt`, `.md`, or `.pdf` study materials, choose
-sample/uploaded/combined corpus scope, ask a question, and receive a grounded
-answer with citations. The main page is a three-panel RAG workbench: materials
-and corpus scope on the left, chat in the center, and evidence plus
-BM25/Dense/Fusion/Reranked method outputs on the right. The Evaluation Dashboard
-reads or creates local reports and displays method summary, recall, ranking
-quality, latency, and weak cases.
-
-If no uploaded documents are selected, uploaded retrieval searches all uploaded
-documents. If one or more documents are selected, retrieval is restricted to
-chunks from those selected documents.
-
-Uploaded demo files are saved locally under ignored `data/processed/` paths:
-
-```text
-data/processed/uploads/
-data/processed/corpus_registry.json
-```
-
-Do not commit uploaded course files or generated processed data.
-
-ASR and TTS are not live features in M7-patch1. ASR remains a mock/planned
-status in the UI until a real audio input path and provider client are added.
-
-## Image-Aware PDF Ingestion
-
-The original text-only PDF loader remains available through `load_pdf()`.
-Milestone 6 adds `load_pdf_chunks()` for unified text, image, and lightweight
-table chunks:
-
-```python
-from rag_project.ingestion import load_pdf_chunks
-
-chunks = load_pdf_chunks("data/raw/lecture.pdf")
-```
-
-Image chunks include local image path, page, source file, bbox, nearby text, and
-mock/fallback caption metadata. Caption failures, image save failures, no-image
-PDFs, and table detection failures are non-blocking. Extracted images are saved
-under `data/processed/images/`, which is ignored by git.
-
-## Safety
-
-Do not commit `.env`, real API keys, private datasets, large model weights, or private course materials.
-
-## API Keys
-
-Copy `.env.example` to `.env` for local secrets. Keep default mock providers for offline mode:
-
-```text
-APP_MODE=local
-LLM_PROVIDER=mock
-RERANKER_PROVIDER=mock
-ASR_PROVIDER=mock
-VISION_PROVIDER=mock
-```
-
-Real API keys, when added in later milestones, belong only in `.env`.
 
 ## Optional SiliconFlow API Mode
 
-Keep `.env.example` committed, but put real secrets only in local `.env`:
+For higher-quality answers, configure `.env`:
 
 ```text
 APP_MODE=api
-
 LLM_PROVIDER=siliconflow
-LLM_MODEL=<your SiliconFlow chat model>
-
+LLM_MODEL=deepseek-ai/DeepSeek-V3
 RERANKER_PROVIDER=siliconflow
-RERANKER_MODEL=<your SiliconFlow reranker model>
-
-VISION_PROVIDER=mock
-ASR_PROVIDER=mock
-
-SILICONFLOW_API_KEY=<your local key>
-SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
+RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+SILICONFLOW_API_KEY=<your-key>
 ```
 
-Run an optional smoke check:
+Without a valid key, the system falls back to mock providers. The UI never exposes the real key value.
+
+## Tests
 
 ```bash
-python scripts/dev.py api-smoke
+python scripts/dev.py test          # 103 Python tests
+python scripts/dev.py ui-test       # 13 React tests
+python scripts/dev.py eval          # Offline evaluation
+python -m compileall scripts src tests app  # Syntax check
 ```
 
-Without a key, the app and smoke command use mock fallback. With a key, the
-Streamlit sidebar should show `SILICONFLOW_API_KEY=set` and must never show the
-real key value.
+## Future Work
 
-For final visual checking, run:
+- Deeper multimodal evidence (video, audio, complex table rendering)
+- Voice interaction (ASR scaffolding exists, not productized)
+- Chinese and multilingual query support
+- Stronger table reconstruction with HTML rendering in evidence cards
+- Richer evaluation dataset with more annotated queries
+- Deployment hardening (HTTPS, auth, rate limiting)
 
-```bash
-python scripts/dev.py run
-```
+## Safety
 
-Confirm that RAG Assistant still shows evidence, citations, retrieval method
-tabs, and a final answer. API failures should fall back to mock output instead
-of crashing.
+- Do not commit `.env` — use `.env.example` as template
+- Do not commit private data (`data/raw/`, `data/processed/`, `reports/` are git-ignored)
+- Prompt injection protection: retrieved context is marked as untrusted reference material
+- LLM refuses to answer when evidence is insufficient rather than hallucinating
+- API keys never exposed in UI or logs

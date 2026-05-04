@@ -2,14 +2,8 @@
 __pycache__/
 *.py[cod]
 *.pyo
-.pytest_cache/
-.pytest_tmp/
-pytest-cache-files-*/
-pytest_tmp/
-pytest_run_tmp/
-pytest_runs/
-pytest_*_tmp*/
-pytest_*_cache*/
+.pytest*
+pytest*
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -18,17 +12,14 @@ htmlcov/
 # Environments and secrets
 .env
 .env.*
-!.env.example
+
 .venv/
 venv/
 env/
 
 # Local data and generated reports
-data/raw/*
-!data/raw/.gitkeep
-data/processed/
-reports/evaluation/
-reports/figures/
+data*
+reports*
 
 # Model/cache artifacts
 *.pt
@@ -45,11 +36,17 @@ frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
 
-# OS/editor
+# Logs and history
+*.log
+logs/
+local_chat_history/
+
+# OS / editor
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 
-# reference
+# Reference
 frontend_reference/*
+

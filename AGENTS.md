@@ -83,16 +83,17 @@ source .venv/bin/activate
 
 推荐 Python 命令使用环境内解释器：
 
-C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py test
-C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval
-C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py ui-test
-C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app
+```bash
+python scripts/dev.py test
+python scripts/dev.py eval
+python scripts/dev.py ui-test
+python -m compileall scripts src tests app
+```
 
 前端测试：
 - 用 `python scripts/dev.py ui-test`，它会解析 Windows 下的 `npm.cmd`，避免 PowerShell 执行策略拦截 `npm.ps1`。
 - 不要直接用 `npm run ...`，PowerShell 可能报：`无法加载 npm.ps1，因为在此系统上禁止运行脚本`。
-- 如果必须直接跑 npm，用：
-  `& 'C:\Program Files\nodejs\npm.cmd' run build`
+- 如果必须直接跑 npm，用对应系统的包管理器命令。
 
 已知 sandbox 坑：
 - Vite/Vitest/esbuild 在启动子进程时可能报 `Error: spawn EPERM`。
@@ -484,24 +485,6 @@ This section applies to the `react-fastapi-product-ui` branch and later product 
 * Keep the existing Streamlit MVP as a working backup on the stable branch.
 * Use `react-fastapi-product-ui` for the productized FastAPI + React migration.
 * Do not delete or break the Streamlit app while migrating unless a later milestone explicitly approves removal.
-
-### Required reference reading
-
-Before implementing React/FastAPI product UI work, read and use the following as references:
-
-```text
-frontend_reference/CourseMate.jsx
-frontend_reference/rag_service/src/app/main.py
-frontend_reference/rag_service/src/rag/rag_engine.py
-frontend_reference/docs/
-```
-
-Reference rules:
-
-* `CourseMate.jsx` is a visual and interaction reference only: left knowledge-base panel, center chat panel, right evidence/status panel, full-height bounded layout, and scrollable inner panels.
-* `frontend_reference/rag_service/` is a reference for FastAPI endpoint organization, document upload flow, document status, session/history shape, and health/status patterns.
-* Do not copy the old project directly. Any reused idea must be adapted to this project's specs, schemas, tests, and retrieval comparison goals.
-* Preserve this project's core differences: BM25, fake/lightweight dense retrieval, hybrid fusion, reranker comparison, evaluation metrics, evidence trace, mock fallback, and offline-first tests.
 
 ### Backend migration constraints
 
