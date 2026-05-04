@@ -563,3 +563,36 @@ Default query depth:
 
 * React/FastAPI query defaults use Top-k 3 for a tighter evidence set and lower
   answer-generation prompt cost.
+
+## Stage 6 Intent-Aware Query UI
+
+Multi-intent questions should not be displayed as one undifferentiated answer.
+When `/api/query` returns `sub_question_support`, the chat answer shows a compact
+support list:
+
+```text
+Q1 What is Word2Vec? insufficient evidence
+Q2 What is Transformer? supported E1
+Overall partially supported
+```
+
+UI rules:
+
+* display `support_label` (`supported`, `partially supported`,
+  `insufficient evidence`, `low support`) instead of treating raw retrieval
+  score as answer confidence;
+* keep raw scores in method analysis and Developer details;
+* preserve inline citation anchors and historical evidence linking;
+* if a citation marker is unresolved, keep the warning behavior from Stage 5B;
+* evidence cards for registered PDF sources show `Open page`, linking to
+  `/api/documents/{doc_id}/file#page={page}`;
+* `Open page` opens in a new tab with `target="_blank"` and
+  `rel="noopener noreferrer"` and must not use a `download` attribute;
+* do not show `Open page` for non-PDF evidence or evidence without a page;
+* never expose local `stored_path` or `chunk_cache_path` in the product UI.
+* the Evidence Intelligence panel should show only the final cited evidence
+  budget for the active answer, not every per-sub-question retrieval candidate;
+* full retrieval candidates remain in method tabs, diagnostics and developer
+  details;
+* chat metadata may display `answer.generation_mode` so API users can tell
+  whether the answer came from a real LLM, mock mode or provider fallback.

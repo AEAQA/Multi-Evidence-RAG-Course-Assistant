@@ -348,6 +348,34 @@ React tests, focused FastAPI/query/generation regression passing 21 tests,
 `python scripts/dev.py test` passing 94 tests, `python scripts/dev.py eval`
 completing reports, and `python -m compileall scripts src tests app` passing.
 
+## Stage 6: Intent-Aware Query Planning and PDF Source Links
+
+Stage 6 adds a planner before retrieval without changing BM25, Dense, Fusion
+or Reranker internals.
+
+Implemented behavior:
+
+* deterministic planner splits simple multi-question inputs into sub-questions;
+* optional SiliconFlow JSON planner is configurable and always falls back to
+  deterministic planning on missing keys, API errors or invalid JSON;
+* multi-intent queries retrieve each sub-question separately and merge evidence
+  with sub-question mapping;
+* `/api/query` returns `query_plan`, `sub_question_support` and
+  `support_label`;
+* React shows per-sub-question support status and keeps raw scores in
+  diagnostics/developer details;
+* uploaded PDF evidence exposes `Open page` links through
+  `/api/documents/{doc_id}/file#page={page}`;
+* public document payloads do not expose local stored paths.
+
+Verification:
+
+* `python scripts/dev.py ui-test` passes 13 mocked React tests.
+* focused planner/query/FastAPI/provider regression passes 33 tests.
+* `npm.cmd run build`, full `python scripts/dev.py test` with 103 tests,
+  `python scripts/dev.py eval` and `python -m compileall scripts src tests app`
+  pass.
+
 ## Stage 5: Demo Packaging
 
 Final delivery should include:

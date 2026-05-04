@@ -187,12 +187,28 @@ ASR_MODEL=mock-asr
 VISION_PROVIDER=mock
 VISION_MODEL=mock-vision
 
+INTENT_PLANNER_PROVIDER=mock
+INTENT_PLANNER_MODEL=mock-intent-planner
+
 OPENAI_API_KEY=xxx
 SILICONFLOW_API_KEY=xxx
 ANTHROPIC_API_KEY=xxx
 ```
 
 In local mode, the system must run without real API keys.
+
+Optional intent-planner API mode follows the same provider/fallback pattern:
+
+```text
+INTENT_PLANNER_PROVIDER=siliconflow
+INTENT_PLANNER_MODEL=Qwen/Qwen3-30B-A3B-Instruct-2507
+INTENT_PLANNER_BASE_URL=https://api.siliconflow.cn/v1
+INTENT_PLANNER_TEMPERATURE=0
+INTENT_PLANNER_MAX_TOKENS=800
+```
+
+Default tests must stay offline and use `INTENT_PLANNER_PROVIDER=mock` or mock
+fallback. Real API keys belong only in local `.env`.
 
 ---
 

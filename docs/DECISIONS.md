@@ -285,3 +285,42 @@ readable summary/HTML/markdown/cell/fallback text, and table evidence is
 promoted only for explicit table, numerical, comparison, row/column or formula
 queries. This avoids citing unreadable tables without deleting table extraction
 or user data.
+
+## Decision 032: Add intent-aware query planning before retrieval
+
+Reason:
+
+Multi-intent questions such as `what is word2vec? and what is transformer?`
+were previously retrieved as one combined string, which could support only one
+part while lowering the apparent confidence for the whole answer. Stage 6 adds
+a planner layer before retrieval. The default planner is deterministic and
+offline, while an optional SiliconFlow JSON planner can be enabled through
+configuration and falls back on missing keys, provider errors or invalid JSON.
+The RAG retrieval algorithms remain unchanged; each planned sub-question simply
+gets its own retrieval query and evidence support status.
+
+## Decision 033: Serve uploaded PDFs through a registry-backed endpoint
+
+Reason:
+
+Evidence cards need a way to open the original PDF page without exposing local
+filesystem paths or using `file://`. Stage 6 serves registered uploaded PDFs
+through `GET /api/documents/{doc_id}/file` and lets React link to
+`/api/documents/{doc_id}/file#page={page}`. The endpoint checks the document
+registry, constrains files to the configured upload directory, returns errors
+for missing/non-PDF files, and does not expose `stored_path` or
+`chunk_cache_path` in public document payloads.
+
+## Decision 034: Cap multi-intent final evidence and preserve LLM synthesis
+
+Reason:
+
+Per-sub-question retrieval can produce `n * top_k` candidates, which is useful
+for diagnostics but too noisy for the primary Evidence Intelligence panel.
+Stage 6 now separates internal retrieval candidates from final cited evidence:
+the current UI contract uses at most five final evidence cards globally and at
+most one final evidence card per sub-question, deduped by chunk id or
+source/page/preview. The answer planner still only plans retrieval; final
+multi-intent answers are generated through the configured answer LLM in API
+mode, with deterministic mock/fallback generation clearly marked by
+`answer.generation_mode`.

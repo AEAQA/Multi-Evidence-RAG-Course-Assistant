@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -138,7 +139,7 @@ def create_app(
     def documents() -> dict[str, Any]:
         records = load_document_registry(registry_path=runtime_paths.registry_path)
         return {
-            "documents": [record.model_dump(mode="json") for record in records],
+            "documents": [_document_payload(record) for record in records],
             "total_chunks": sum(record.chunk_count for record in records),
         }
 
@@ -160,10 +161,10 @@ def create_app(
         )
         records = load_document_registry(registry_path=runtime_paths.registry_path)
         return {
-            "uploaded": [record.model_dump(mode="json") for record in result.uploaded],
+            "uploaded": [_document_payload(record) for record in result.uploaded],
             "failed": [failure.model_dump(mode="json") for failure in result.failed],
             "warnings": result.warnings,
-            "documents": [record.model_dump(mode="json") for record in records],
+            "documents": [_document_payload(record) for record in records],
             "total_chunks": sum(record.chunk_count for record in records),
         }
 
@@ -178,9 +179,32 @@ def create_app(
         records = load_document_registry(registry_path=runtime_paths.registry_path)
         return {
             "deleted": {"doc_id": doc_id},
-            "documents": [record.model_dump(mode="json") for record in records],
+            "documents": [_document_payload(record) for record in records],
             "total_chunks": sum(record.chunk_count for record in records),
         }
+
+    @app.get("/api/documents/{doc_id}/file")
+    def document_file(doc_id: str) -> FileResponse:
+        records = load_document_registry(registry_path=runtime_paths.registry_path)
+        record = next((item for item in records if item.doc_id == doc_id), None)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        path = Path(record.stored_path).resolve()
+        upload_root = runtime_paths.upload_dir.resolve()
+        if upload_root not in path.parents:
+            raise HTTPException(status_code=403, detail="Document path is not allowed")
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Document file not found")
+        if path.suffix.lower() != ".pdf":
+            raise HTTPException(status_code=400, detail="Document is not a PDF")
+        return FileResponse(
+            path,
+            media_type="application/pdf",
+            filename=record.filename,
+            headers={
+                "Content-Disposition": f'inline; filename="{record.filename}"'
+            },
+        )
 
     @app.post("/api/query")
     def query(request: QueryRequest) -> dict[str, Any]:
@@ -244,6 +268,17 @@ def _run_offline_evaluation(*, query_path: Path, top_k: int) -> EvaluationResult
     return evaluate_retrieval_methods(chunks, queries, top_k=max(1, min(top_k, 10)))
 
 
+def _document_payload(record: Any) -> dict[str, Any]:
+    payload = record.model_dump(mode="json")
+    payload.pop("stored_path", None)
+    payload.pop("chunk_cache_path", None)
+    payload["is_pdf"] = str(record.filename).lower().endswith(".pdf")
+    payload["source_url"] = (
+        f"/api/documents/{record.doc_id}/file" if payload["is_pdf"] else None
+    )
+    return payload
+
+
 def _query_response(state: WorkbenchState) -> dict[str, Any]:
     grounding_status = (
         "insufficient_evidence"
@@ -257,6 +292,7 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
             "style": "detailed",
             "grounding_status": grounding_status,
             "retrieval_explanation": state.answer.retrieval_explanation,
+            "generation_mode": state.answer.generation_mode,
         },
         "citations": [
             _citation_payload(citation, state.final_evidence)
@@ -273,9 +309,12 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
                 "method": evidence.method,
                 "score": evidence.score,
                 "confidence": evidence.confidence,
+                "support_label": evidence.support_label,
+                "sub_question_id": evidence.sub_question_id,
                 "preview": evidence.preview,
                 "image_url": evidence.image_url,
                 "table_summary": evidence.table_summary,
+                "source_url": _source_url(evidence),
             }
             for evidence in state.final_evidence
         ],
@@ -296,6 +335,11 @@ def _query_response(state: WorkbenchState) -> dict[str, Any]:
         "provider_status": state.provider_status.model_dump(mode="json"),
         "warnings": state.corpus_warnings,
         "suggestions": state.suggestions,
+        "query_plan": state.query_plan.model_dump(mode="json") if state.query_plan else None,
+        "sub_question_support": [
+            item.model_dump(mode="json") for item in state.sub_question_support
+        ],
+        "support_label": state.support_label,
     }
 
 
@@ -329,6 +373,14 @@ def _result_rows(results: list[RetrievalResult]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def _source_url(evidence: Any) -> str | None:
+    if not evidence.doc_id or not evidence.page:
+        return None
+    if not str(evidence.source_file).lower().endswith(".pdf"):
+        return None
+    return f"/api/documents/{evidence.doc_id}/file#page={evidence.page}"
 
 
 def _preview(text: str, *, max_chars: int = 360) -> str:

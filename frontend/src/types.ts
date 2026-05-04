@@ -5,11 +5,11 @@ export type TypeCounts = Record<string, number>;
 export interface DocumentRecord {
   doc_id: string;
   filename: string;
-  stored_path?: string;
   chunk_count: number;
   type_counts: TypeCounts;
   created_at?: string;
-  chunk_cache_path?: string;
+  is_pdf?: boolean;
+  source_url?: string | null;
 }
 
 export interface DocumentsResponse {
@@ -60,6 +60,7 @@ export interface AnswerPayload {
   style: string;
   grounding_status: "grounded" | "insufficient_evidence";
   retrieval_explanation?: string;
+  generation_mode?: string;
 }
 
 export interface Citation {
@@ -80,9 +81,12 @@ export interface EvidenceItem {
   method: string;
   score: number;
   confidence?: number;
+  support_label?: string;
+  sub_question_id?: string | null;
   preview: string;
   image_url?: string | null;
   table_summary?: string | null;
+  source_url?: string | null;
 }
 
 export interface RetrievalStage {
@@ -131,6 +135,40 @@ export interface QueryResponse {
   provider_status?: StatusResponse["provider_status"];
   warnings: string[];
   suggestions: string[];
+  query_plan?: QueryPlan | null;
+  sub_question_support?: SubQuestionSupport[];
+  support_label?: string;
+}
+
+export interface SubQuestionPlan {
+  id: string;
+  question: string;
+  intent: string;
+  retrieval_query: string;
+  evidence_preference: string[];
+  table_allowed: boolean;
+  image_allowed: boolean;
+  top_k: number;
+}
+
+export interface QueryPlan {
+  original_query: string;
+  is_multi_intent: boolean;
+  sub_questions: SubQuestionPlan[];
+  answer_style: "sectioned" | "single";
+  requires_partial_support_status: boolean;
+  planner_provider?: string;
+  fallback_used?: boolean;
+}
+
+export interface SubQuestionSupport {
+  id: string;
+  question: string;
+  intent: string;
+  retrieval_query: string;
+  support_label: string;
+  evidence_ids: string[];
+  insufficient_evidence: boolean;
 }
 
 export interface EvaluationSummary {

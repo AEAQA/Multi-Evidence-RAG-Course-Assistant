@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 import uuid
 
+import fitz
 import pytest
 
 fastapi = pytest.importorskip("fastapi")
@@ -77,7 +78,8 @@ def test_upload_query_and_delete_uploaded_text_document() -> None:
     record = payload["uploaded"][0]
     assert record["filename"] == "notes.txt"
     assert record["chunk_count"] == 1
-    assert Path(record["chunk_cache_path"]).exists()
+    assert "stored_path" not in record
+    assert "chunk_cache_path" not in record
 
     query_response = client.post(
         "/api/query",
@@ -114,10 +116,66 @@ def test_upload_query_and_delete_uploaded_text_document() -> None:
     assert query_payload["scope"]["doc_count"] == 1
     assert set(query_payload["retrieval"]) == {"bm25", "dense", "fusion", "reranked"}
     assert "total" in query_payload["timing"]
+    assert query_payload["query_plan"]["sub_questions"]
+    assert query_payload["support_label"] == "supported"
 
     delete_response = client.delete(f"/api/documents/{record['doc_id']}")
     assert delete_response.status_code == 200
     assert delete_response.json()["documents"] == []
+
+
+def test_pdf_source_endpoint_serves_registered_pdf_without_local_path() -> None:
+    client = _client(_test_root())
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Word2Vec appears on this PDF page.")
+    pdf_bytes = document.tobytes()
+    document.close()
+
+    upload_response = client.post(
+        "/api/documents/upload",
+        files={"files": ("lecture.pdf", pdf_bytes, "application/pdf")},
+    )
+    assert upload_response.status_code == 200
+    record = upload_response.json()["uploaded"][0]
+    assert record["is_pdf"] is True
+    assert record["source_url"] == f"/api/documents/{record['doc_id']}/file"
+    assert "stored_path" not in record
+
+    file_response = client.get(f"/api/documents/{record['doc_id']}/file")
+    assert file_response.status_code == 200
+    assert file_response.headers["content-type"].startswith("application/pdf")
+    assert file_response.headers["content-disposition"].startswith("inline")
+
+
+def test_multi_intent_query_response_includes_support_status() -> None:
+    client = _client(_test_root())
+    client.post(
+        "/api/documents/upload",
+        files={
+            "files": (
+                "notes.txt",
+                b"Word2Vec learns word embeddings from context. A transformer uses self-attention over tokens.",
+                "text/plain",
+            )
+        },
+    )
+
+    response = client.post(
+        "/api/query",
+        json={
+            "query": "what is word2vec? and what is transformer?",
+            "top_k": 3,
+            "scope": {"mode": "uploaded", "selected_doc_ids": []},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["query_plan"]["is_multi_intent"] is True
+    assert len(payload["sub_question_support"]) == 2
+    assert payload["support_label"] in {"supported", "partially supported"}
+    assert payload["answer"]["generation_mode"] in {"mock", "llm", "fallback"}
 
 
 def test_unsupported_upload_is_reported_without_crashing() -> None:

@@ -202,10 +202,25 @@ function AssistantAnswer({
         />
       </p>
       <div className="answer-meta">
-        <span>{response.answer.grounding_status}</span>
+        <span>{response.support_label ?? response.answer.grounding_status}</span>
+        {response.answer.generation_mode ? <span>{response.answer.generation_mode}</span> : null}
         <span>{response.final_evidence.length} evidence cards</span>
         <span>{Math.round(response.timing.total ?? 0)} ms</span>
       </div>
+      {response.sub_question_support?.length ? (
+        <div className="support-list" aria-label="Sub-question support">
+          {response.sub_question_support.map((item) => (
+            <div className="support-row" key={item.id}>
+              <strong>{item.id}</strong>
+              <span>{item.question}</span>
+              <em>{item.support_label}</em>
+              {item.evidence_ids.length ? (
+                <small>{item.evidence_ids.join(", ")}</small>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

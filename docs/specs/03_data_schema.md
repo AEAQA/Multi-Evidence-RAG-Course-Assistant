@@ -118,6 +118,81 @@ Stage 5B table evidence quality rules:
 }
 ```
 
+## Intent-aware query plan schema
+
+The query planner runs before retrieval and produces JSON-only planning data:
+
+```json
+{
+  "original_query": "what is word2vec? and what is transformer?",
+  "is_multi_intent": true,
+  "sub_questions": [
+    {
+      "id": "Q1",
+      "question": "what is word2vec?",
+      "intent": "definition",
+      "retrieval_query": "word2vec definition concept",
+      "evidence_preference": ["text", "image"],
+      "table_allowed": false,
+      "image_allowed": true,
+      "top_k": 3
+    }
+  ],
+  "answer_style": "sectioned",
+  "requires_partial_support_status": true
+}
+```
+
+Supported intent labels:
+
+```text
+definition
+concept
+formula
+figure
+comparison
+summary
+procedure
+other
+```
+
+Per-sub-question support rows:
+
+```json
+{
+  "id": "Q1",
+  "question": "what is word2vec?",
+  "intent": "definition",
+  "retrieval_query": "word2vec definition concept",
+  "support_label": "supported",
+  "evidence_ids": ["E1"],
+  "insufficient_evidence": false
+}
+```
+
+`EvidenceReference` may include `support_label`, `sub_question_id` and
+`source_url`. `source_url` is only populated for registered uploaded PDFs and
+uses `/api/documents/{doc_id}/file#page={page}` rather than a local path.
+
+Multi-intent final evidence is intentionally smaller than the internal
+retrieval candidate set. The current product contract caps user-facing final
+evidence at five cards globally and one card per sub-question, with deduping by
+`chunk_id` or by source/page/cleaned preview when a chunk id is unavailable.
+The complete BM25/Dense/Fusion/Reranker rows remain available in diagnostics.
+
+Answer responses include a generation-mode marker:
+
+```json
+{
+  "answer": "Q1. What is Word2Vec?\nWord2Vec is explained as ... [E1].",
+  "generation_mode": "llm"
+}
+```
+
+Supported values are `llm`, `mock`, `fallback` and `none`. This is user-facing
+metadata for transparency and should not expose API keys, provider traces or
+private prompts.
+
 ## Fused result schema
 
 ```json

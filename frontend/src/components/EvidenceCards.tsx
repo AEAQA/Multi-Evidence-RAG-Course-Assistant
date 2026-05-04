@@ -29,7 +29,7 @@ export function EvidenceCard({
       <div className="evidence-topline">
         <strong>{item.evidence_id}</strong>
         <span>{item.method}</span>
-        <span>{confidenceLabel(item.confidence ?? item.score)}</span>
+        <span>{item.support_label ?? confidenceLabel(item.confidence ?? item.score)}</span>
       </div>
 
       {item.type === "image" && item.image_url && !imageError ? (
@@ -76,7 +76,13 @@ export function EvidenceCard({
       <div className="evidence-meta">
         <span>{item.source_file}</span>
         <span>page {item.page ?? "n/a"}</span>
+        {item.source_url && item.page ? (
+          <a href={item.source_url} target="_blank" rel="noopener noreferrer">
+            Open page
+          </a>
+        ) : null}
         <span>{displayEvidenceType(item.type)}</span>
+        {item.sub_question_id ? <span>{item.sub_question_id}</span> : null}
         {item.type === "table" && item.table_summary ? (
           <span className="pill table-pill">Table summary evidence</span>
         ) : null}
@@ -100,6 +106,8 @@ export function EvidenceCard({
                 doc_id: item.doc_id,
                 score: item.score,
                 confidence: item.confidence,
+                support_label: item.support_label,
+                sub_question_id: item.sub_question_id,
                 method: item.method
               },
               null,

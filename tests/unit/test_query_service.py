@@ -234,6 +234,110 @@ def test_valid_table_chunks_are_allowed_for_table_intent_queries() -> None:
     assert state.answer.citations[0].evidence_id == "E1"
 
 
+def test_multi_intent_query_retrieves_each_sub_question_separately() -> None:
+    word2vec = Chunk(
+        chunk_id="doc_page001_text_0001",
+        doc_id="doc",
+        source_file="embeddings.pdf",
+        page=1,
+        type="text",
+        text="Word2Vec is a neural method for learning word embeddings from context.",
+        metadata=ChunkMetadata(),
+    )
+    transformer = Chunk(
+        chunk_id="doc_page002_text_0001",
+        doc_id="doc",
+        source_file="transformers.pdf",
+        page=2,
+        type="text",
+        text="A transformer uses self-attention to model relationships between tokens.",
+        metadata=ChunkMetadata(),
+    )
+    pipeline = _QueryAwarePipeline({
+        "word2vec": [_result(word2vec, score=0.95)],
+        "transformer": [_result(transformer, score=0.92)],
+    })
+
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[word2vec, transformer],
+        retrieval_pipeline=pipeline,
+    ).run("what is word2vec? and what is transformer?", top_k=1)
+
+    assert state.query_plan is not None
+    assert state.query_plan.is_multi_intent is True
+    assert [item.id for item in state.sub_question_support] == ["Q1", "Q2"]
+    assert all(item.support_label == "supported" for item in state.sub_question_support)
+    assert state.support_label == "supported"
+    assert "Q1." in state.answer.answer
+    assert "Q2." in state.answer.answer
+    assert "[E1]" in state.answer.answer
+    assert "[E2]" in state.answer.answer
+    assert {item.sub_question_id for item in state.final_evidence} == {"Q1", "Q2"}
+    assert len(state.final_evidence) == 2
+    assert state.answer.generation_mode == "mock"
+
+
+def test_multi_intent_query_reports_partial_support() -> None:
+    transformer = Chunk(
+        chunk_id="doc_page002_text_0001",
+        doc_id="doc",
+        source_file="transformers.pdf",
+        page=2,
+        type="text",
+        text="A transformer uses self-attention to model relationships between tokens.",
+        metadata=ChunkMetadata(),
+    )
+    pipeline = _QueryAwarePipeline({
+        "word2vec": [],
+        "transformer": [_result(transformer, score=0.92)],
+    })
+
+    state = QueryService(
+        config=AppConfig(),
+        chunks=[transformer],
+        retrieval_pipeline=pipeline,
+    ).run("what is word2vec? and what is transformer?", top_k=1)
+
+    labels = {item.id: item.support_label for item in state.sub_question_support}
+    assert labels["Q1"] == "insufficient evidence"
+    assert labels["Q2"] == "supported"
+    assert state.support_label == "partially supported"
+    assert labels["Q1"] == "insufficient evidence"
+
+
+def test_multi_intent_final_evidence_is_globally_capped() -> None:
+    chunks = [
+        Chunk(
+            chunk_id=f"doc_page00{index}_text_0001",
+            doc_id="doc",
+            source_file=f"source_{index}.pdf",
+            page=index,
+            type="text",
+            text=f"Evidence chunk {index} explains retrieval topic {index}.",
+            metadata=ChunkMetadata(),
+        )
+        for index in range(1, 10)
+    ]
+    pipeline = _QueryAwarePipeline({
+        "word2vec": [_result(chunk, score=1.0 - idx * 0.01) for idx, chunk in enumerate(chunks[0:3])],
+        "transformer": [_result(chunk, score=0.9 - idx * 0.01) for idx, chunk in enumerate(chunks[3:6])],
+        "reranking": [_result(chunk, score=0.8 - idx * 0.01) for idx, chunk in enumerate(chunks[6:9])],
+    })
+
+    state = QueryService(
+        config=AppConfig(),
+        chunks=chunks,
+        retrieval_pipeline=pipeline,
+    ).run("what is word2vec? what is transformer? what is reranking?", top_k=3)
+
+    assert state.query_plan is not None
+    assert state.query_plan.is_multi_intent is True
+    assert len(state.final_evidence) <= 5
+    assert len(state.final_evidence) == 3
+    assert {item.sub_question_id for item in state.final_evidence} == {"Q1", "Q2", "Q3"}
+
+
 def test_query_service_accepts_prebuilt_retrieval_pipeline() -> None:
     chunk = Chunk(
         chunk_id="uploaded_doc_page001_text_0001",
@@ -286,6 +390,42 @@ class _StaticPipeline:
             dense_results=self.reranked_results[:top_k],
             fusion_results=self.reranked_results[:top_k],
             reranked_results=self.reranked_results[:top_k],
+        )
+        return output, {
+            "bm25": 0.0,
+            "dense": 0.0,
+            "fusion": 0.0,
+            "reranker": 0.0,
+            "retrieval": 0.0,
+        }
+
+
+class _QueryAwarePipeline:
+    def __init__(self, results_by_term: dict[str, list[RetrievalResult]]) -> None:
+        self.results_by_term = results_by_term
+        self.call_index = 0
+
+    def search_with_timing(
+        self,
+        query: str,
+        *,
+        top_k: int,
+    ) -> tuple[RetrievalPipelineOutput, dict[str, float]]:
+        normalized = query.lower()
+        results: list[RetrievalResult] = []
+        for term, term_results in self.results_by_term.items():
+            if term in normalized:
+                results = term_results
+                break
+        if not results and self.results_by_term:
+            values = list(self.results_by_term.values())
+            results = values[min(self.call_index, len(values) - 1)]
+        self.call_index += 1
+        output = RetrievalPipelineOutput(
+            bm25_results=results[:top_k],
+            dense_results=results[:top_k],
+            fusion_results=results[:top_k],
+            reranked_results=results[:top_k],
         )
         return output, {
             "bm25": 0.0,

@@ -6,7 +6,6 @@ import App from "./App";
 const documentRecord = {
   doc_id: "doc-alpha",
   filename: "alpha_notes.txt",
-  stored_path: "uploads/alpha_notes.txt",
   chunk_count: 3,
   type_counts: { text: 3 },
   created_at: "2026-05-03T00:00:00+00:00"
@@ -19,6 +18,7 @@ const queryResponse = {
       "The materials indicate that reranking selects the final evidence chunks [E1]. They also state that fusion combines lexical and semantic rankings [E2].",
     style: "detailed",
     grounding_status: "grounded",
+    generation_mode: "llm",
     retrieval_explanation:
       "Top reranked evidence chunks were selected for grounded answer generation."
   },
@@ -49,6 +49,8 @@ const queryResponse = {
       method: "reranked",
       score: 0.91,
       confidence: 0.91,
+      support_label: "supported",
+      source_url: "/api/documents/doc-alpha/file#page=1",
       preview: "Reranking selects the final evidence chunks."
     },
     {
@@ -61,6 +63,7 @@ const queryResponse = {
       method: "reranked",
       score: 0.74,
       confidence: 0.74,
+      support_label: "supported",
       preview: "Fusion combines lexical and semantic rankings."
     }
   ],
@@ -182,7 +185,27 @@ const queryResponse = {
   ],
   provider_status: { by_component: {} },
   warnings: [],
-  suggestions: ["Inspect cited evidence before trusting the answer."]
+  suggestions: ["Inspect cited evidence before trusting the answer."],
+  query_plan: {
+    original_query: "What does reranking do?",
+    is_multi_intent: false,
+    sub_questions: [
+      {
+        id: "Q1",
+        question: "What does reranking do?",
+        intent: "concept",
+        retrieval_query: "reranking concept explanation",
+        evidence_preference: ["text", "image"],
+        table_allowed: false,
+        image_allowed: true,
+        top_k: 3
+      }
+    ],
+    answer_style: "single",
+    requires_partial_support_status: false
+  },
+  sub_question_support: [],
+  support_label: "supported"
 };
 
 const insufficientResponse = {
@@ -343,6 +366,73 @@ describe("React product workbench", () => {
     await user.click(await screen.findByRole("button", { name: "Show evidence E1" }));
 
     expect(screen.getByTestId("evidence-card-E1")).toHaveClass("evidence-card-active");
+    expect(screen.getByRole("link", { name: "Open page" })).toHaveAttribute(
+      "href",
+      "/api/documents/doc-alpha/file#page=1"
+    );
+    expect(screen.getByRole("link", { name: "Open page" })).toHaveAttribute("target", "_blank");
+    expect(screen.getByRole("link", { name: "Open page" })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer"
+    );
+    expect(within(screen.getByTestId("evidence-card-E1")).getByText("supported")).toBeInTheDocument();
+  });
+
+  test("renders multi-intent support status per sub-question", async () => {
+    const user = userEvent.setup();
+    const multiResponse = {
+      ...queryResponse,
+      query: "what is word2vec? and what is transformer?",
+      answer: {
+        ...queryResponse.answer,
+        text:
+          "Q1. What is Word2Vec? The retrieved materials do not contain enough evidence for this part.\n\nQ2. What is Transformer? Transformers use self-attention [E1]."
+      },
+      final_evidence: [queryResponse.final_evidence[0]],
+      citations: [queryResponse.citations[0]],
+      support_label: "partially supported",
+      query_plan: {
+        ...queryResponse.query_plan,
+        is_multi_intent: true,
+        answer_style: "sectioned",
+        requires_partial_support_status: true
+      },
+      sub_question_support: [
+        {
+          id: "Q1",
+          question: "What is Word2Vec?",
+          intent: "definition",
+          retrieval_query: "Word2Vec definition concept",
+          support_label: "insufficient evidence",
+          evidence_ids: [],
+          insufficient_evidence: true
+        },
+        {
+          id: "Q2",
+          question: "What is Transformer?",
+          intent: "definition",
+          retrieval_query: "Transformer definition concept",
+          support_label: "supported",
+          evidence_ids: ["E1"],
+          insufficient_evidence: false
+        }
+      ]
+    };
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/api/query") {
+        return Promise.resolve(jsonResponse(multiResponse));
+      }
+      return mockFetch(input, init);
+    }));
+    render(<App />);
+
+    await user.type(await screen.findByLabelText(/study question/i), "what is word2vec? and what is transformer?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText("partially supported")).toBeInTheDocument();
+    expect(screen.getByText("What is Word2Vec?")).toBeInTheDocument();
+    expect(screen.getByText("insufficient evidence")).toBeInTheDocument();
+    expect(screen.getByText("What is Transformer?")).toBeInTheDocument();
   });
 
   test("clicking a citation in an older answer restores that turn's evidence", async () => {

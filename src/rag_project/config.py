@@ -14,10 +14,14 @@ DEFAULT_LLM_PROVIDER = "mock"
 DEFAULT_RERANKER_PROVIDER = "mock"
 DEFAULT_ASR_PROVIDER = "mock"
 DEFAULT_VISION_PROVIDER = "mock"
+DEFAULT_INTENT_PLANNER_PROVIDER = "mock"
 DEFAULT_LLM_MODEL = "mock-llm"
 DEFAULT_RERANKER_MODEL = "mock-reranker"
 DEFAULT_ASR_MODEL = "mock-asr"
 DEFAULT_VISION_MODEL = "mock-vision"
+DEFAULT_INTENT_PLANNER_MODEL = "mock-intent-planner"
+DEFAULT_INTENT_PLANNER_TEMPERATURE = 0.0
+DEFAULT_INTENT_PLANNER_MAX_TOKENS = 800
 DEFAULT_SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
 DEFAULT_API_TIMEOUT_SECONDS = 30.0
 
@@ -31,10 +35,15 @@ class AppConfig:
     reranker_provider: str = DEFAULT_RERANKER_PROVIDER
     asr_provider: str = DEFAULT_ASR_PROVIDER
     vision_provider: str = DEFAULT_VISION_PROVIDER
+    intent_planner_provider: str = DEFAULT_INTENT_PLANNER_PROVIDER
     llm_model: str = DEFAULT_LLM_MODEL
     reranker_model: str = DEFAULT_RERANKER_MODEL
     asr_model: str = DEFAULT_ASR_MODEL
     vision_model: str = DEFAULT_VISION_MODEL
+    intent_planner_model: str = DEFAULT_INTENT_PLANNER_MODEL
+    intent_planner_base_url: str = DEFAULT_SILICONFLOW_BASE_URL
+    intent_planner_temperature: float = DEFAULT_INTENT_PLANNER_TEMPERATURE
+    intent_planner_max_tokens: int = DEFAULT_INTENT_PLANNER_MAX_TOKENS
     siliconflow_api_key: str = field(default="", repr=False)
     siliconflow_base_url: str = DEFAULT_SILICONFLOW_BASE_URL
     api_timeout_seconds: float = DEFAULT_API_TIMEOUT_SECONDS
@@ -63,6 +72,8 @@ class AppConfig:
             "ASR_MODEL": self.asr_model,
             "VISION_PROVIDER": self.vision_provider,
             "VISION_MODEL": self.vision_model,
+            "INTENT_PLANNER_PROVIDER": self.intent_planner_provider,
+            "INTENT_PLANNER_MODEL": self.intent_planner_model,
             "SILICONFLOW_API_KEY": self.api_key_status,
             "SILICONFLOW_BASE_URL": self.siliconflow_base_url,
         }
@@ -86,10 +97,26 @@ def load_config(
         reranker_provider=os.getenv("RERANKER_PROVIDER", DEFAULT_RERANKER_PROVIDER),
         asr_provider=os.getenv("ASR_PROVIDER", DEFAULT_ASR_PROVIDER),
         vision_provider=os.getenv("VISION_PROVIDER", DEFAULT_VISION_PROVIDER),
+        intent_planner_provider=os.getenv(
+            "INTENT_PLANNER_PROVIDER", DEFAULT_INTENT_PLANNER_PROVIDER
+        ),
         llm_model=os.getenv("LLM_MODEL", DEFAULT_LLM_MODEL),
         reranker_model=os.getenv("RERANKER_MODEL", DEFAULT_RERANKER_MODEL),
         asr_model=os.getenv("ASR_MODEL", DEFAULT_ASR_MODEL),
         vision_model=os.getenv("VISION_MODEL", DEFAULT_VISION_MODEL),
+        intent_planner_model=os.getenv(
+            "INTENT_PLANNER_MODEL", DEFAULT_INTENT_PLANNER_MODEL
+        ),
+        intent_planner_base_url=os.getenv(
+            "INTENT_PLANNER_BASE_URL",
+            os.getenv("SILICONFLOW_BASE_URL", DEFAULT_SILICONFLOW_BASE_URL),
+        ).rstrip("/"),
+        intent_planner_temperature=_float_env(
+            "INTENT_PLANNER_TEMPERATURE", DEFAULT_INTENT_PLANNER_TEMPERATURE
+        ),
+        intent_planner_max_tokens=_int_env(
+            "INTENT_PLANNER_MAX_TOKENS", DEFAULT_INTENT_PLANNER_MAX_TOKENS
+        ),
         siliconflow_api_key=os.getenv("SILICONFLOW_API_KEY", ""),
         siliconflow_base_url=os.getenv(
             "SILICONFLOW_BASE_URL", DEFAULT_SILICONFLOW_BASE_URL
@@ -103,5 +130,12 @@ def load_config(
 def _float_env(name: str, default: float) -> float:
     try:
         return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)))
     except ValueError:
         return default

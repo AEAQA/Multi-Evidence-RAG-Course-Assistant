@@ -35,6 +35,7 @@ class AnswerGenerator:
                 insufficient_evidence=True,
                 evidence_chunks=[],
                 retrieval_explanation="No retrieved evidence was available for answer generation.",
+                generation_mode="none",
             )
 
         prompt = build_grounded_prompt(

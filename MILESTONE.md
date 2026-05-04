@@ -481,3 +481,42 @@ Delivered:
 * Verified `npm.cmd run build`, full `python scripts/dev.py test` passing 94
   tests, `python scripts/dev.py eval` completing reports, and
   `python -m compileall scripts src tests app` passing.
+
+### Stage 6: Intent-Aware Query Planning and PDF Source Links
+
+Status: complete.
+
+Goal: handle multi-intent user questions with planned sub-question retrieval,
+evidence support labels and safe source PDF page jumps.
+
+Delivered:
+
+* Added a deterministic intent planner that splits simple multi-question
+  inputs and assigns intent, retrieval query, evidence preference and Top-k.
+* Added optional SiliconFlow JSON planner configuration with deterministic
+  fallback on missing keys, provider failure or invalid JSON.
+* QueryService now retrieves each planned sub-question separately for
+  multi-intent inputs and returns `query_plan`, `sub_question_support` and
+  overall `support_label`.
+* Multi-intent final evidence is capped to avoid evidence explosion: the
+  current UI receives at most five final evidence cards and at most one card
+  per sub-question, while full method candidates remain in diagnostics.
+* Multi-intent answers are sectioned by sub-question and can mark one part as
+  insufficient evidence without forcing the entire answer to confidence zero.
+* Multi-intent final answers now use the configured answer-generation client
+  rather than the planner or a retrieval-template path; the API exposes
+  `answer.generation_mode` as `llm`, `mock`, `fallback` or `none`.
+* React displays per-sub-question support status and uses support labels rather
+  than raw retrieval score as user-facing answer confidence.
+* FastAPI serves registered uploaded PDFs through
+  `/api/documents/{doc_id}/file`, and evidence cards link to
+  `/api/documents/{doc_id}/file#page={page}` when source/page are available.
+* PDF source endpoint returns `Content-Disposition: inline` so browser PDF
+  viewers open the source instead of downloading by default.
+* Public FastAPI document payloads no longer expose local `stored_path` or
+  `chunk_cache_path`.
+* Verified focused planner/query/FastAPI/provider behavior with 33 tests and
+  React mocked behavior with 13 tests.
+* Verified `npm.cmd run build`, full `python scripts/dev.py test` passing 103
+  tests, `python scripts/dev.py eval` completing reports, and
+  `python -m compileall scripts src tests app` passing.

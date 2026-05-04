@@ -30,10 +30,14 @@ class MockLLMClient:
                 insufficient_evidence=True,
                 evidence_chunks=[],
                 retrieval_explanation="No evidence chunks were provided to the mock LLM.",
+                generation_mode="mock",
             )
 
         top_chunks = evidence_chunks[:5]
-        answer = _build_mock_grounded_answer(top_chunks)
+        if question.startswith("Answer the original multi-intent question by sub-question."):
+            answer = _build_mock_multi_intent_answer(question, top_chunks)
+        else:
+            answer = _build_mock_grounded_answer(top_chunks)
         citations = [
             Citation(
                 chunk_id=chunk.chunk_id,
@@ -51,6 +55,7 @@ class MockLLMClient:
                 f"Mock LLM used {len(top_chunks)} evidence chunks and ignored any "
                 "instructions embedded inside retrieved context."
             ),
+            generation_mode="mock",
         )
 
 
@@ -76,6 +81,43 @@ def _build_mock_grounded_answer(chunks: list[Chunk]) -> str:
         f"Together, these materials suggest that both {topic0} and {topic1} "
         f"are relevant to understanding the concepts covered in the course content."
     )
+
+
+def _build_mock_multi_intent_answer(question: str, chunks: list[Chunk]) -> str:
+    sections: list[str] = []
+    chunk_by_marker = {
+        f"E{index}": chunk for index, chunk in enumerate(chunks, start=1)
+    }
+    for line in question.splitlines():
+        match = re.match(
+            r"^(Q\d+)\.\s+(.+?)\s+\|\s+support=([^|]+)\|\s+evidence=(.+)$",
+            line.strip(),
+        )
+        if not match:
+            continue
+        qid, sub_question, support_label, evidence_text = match.groups()
+        marker_match = re.search(r"\bE\d+\b", evidence_text)
+        if "insufficient" in support_label.lower() or not marker_match:
+            sections.append(
+                f"{qid}. {sub_question}\n"
+                "The retrieved materials do not contain enough evidence for this part."
+            )
+            continue
+        marker = marker_match.group(0)
+        chunk = chunk_by_marker.get(marker)
+        if chunk is None:
+            sections.append(
+                f"{qid}. {sub_question}\n"
+                "The retrieved materials do not contain enough evidence for this part."
+            )
+            continue
+        sections.append(
+            f"{qid}. {sub_question}\n"
+            f"The evidence indicates that {_first_sentence(chunk.text)} [{marker}]."
+        )
+    if sections:
+        return "\n\n".join(sections)
+    return _build_mock_grounded_answer(chunks)
 
 
 def _extract_topic(text: str) -> str:

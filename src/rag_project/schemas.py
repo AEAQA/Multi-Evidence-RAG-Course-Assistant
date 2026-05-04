@@ -63,6 +63,8 @@ class EvidenceReference(BaseModel):
     method: str
     score: float
     confidence: float
+    support_label: str = "supported"
+    sub_question_id: str | None = None
     preview: str
     image_url: str | None = None
     table_summary: str | None = None
@@ -83,6 +85,7 @@ class AnswerResponse(BaseModel):
     insufficient_evidence: bool = False
     evidence_chunks: list[Chunk] = Field(default_factory=list)
     retrieval_explanation: str = ""
+    generation_mode: str = "mock"
 
 
 class RerankResult(BaseModel):
@@ -109,6 +112,18 @@ class RetrievalPipelineOutput(BaseModel):
 class ASRResponse(BaseModel):
     text: str
     confidence: float | None = None
+
+
+class SubQuestionSupport(BaseModel):
+    """Evidence support status for one planned sub-question."""
+
+    id: str
+    question: str
+    intent: str
+    retrieval_query: str
+    support_label: str
+    evidence_ids: list[str] = Field(default_factory=list)
+    insufficient_evidence: bool = False
 
 
 class VisionCaptionResponse(BaseModel):

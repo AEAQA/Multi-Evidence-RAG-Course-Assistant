@@ -92,6 +92,7 @@ class SiliconFlowLLMClient:
                     f"SiliconFlow LLM model {self.model} generated an answer "
                     "from selected evidence chunks."
                 ),
+                generation_mode="llm",
             )
         except Exception:
             response = self.fallback_client.generate_answer(question, evidence_chunks)
@@ -99,7 +100,7 @@ class SiliconFlowLLMClient:
                 response.retrieval_explanation
                 + " SiliconFlow LLM fallback was used after API failure."
             ).strip()
-            return response
+            return response.model_copy(update={"generation_mode": "fallback"})
 
     def _headers(self) -> dict[str, str]:
         return {

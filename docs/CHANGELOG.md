@@ -71,6 +71,11 @@
 * Stage 5B sentence-boundary evidence preview tests and current-query latency diagnostics.
 * Stage 5B table evidence quality filter tests for invalid placeholder tables
   and valid table-intent queries.
+* Intent-aware query planner with deterministic offline fallback and optional
+  SiliconFlow JSON planner configuration.
+* Multi-intent query support that retrieves each planned sub-question
+  separately and reports per-sub-question evidence support.
+* Registry-backed uploaded PDF source endpoint for evidence page jumps.
 
 ### Changed
 
@@ -142,6 +147,19 @@
   app-service query path.
 * Newly ingested table chunks can store `table_summary`, `table_markdown` and
   `cells` metadata in addition to `table_html`.
+* Query responses now include `query_plan`, `sub_question_support` and a
+  user-facing `support_label`.
+* Multi-intent final evidence is capped separately from internal retrieval
+  diagnostics to avoid E1-E9 style evidence overload in the primary UI.
+* `/api/query` now returns `answer.generation_mode` so the frontend can show
+  whether an answer came from a real LLM, mock generator, provider fallback or
+  no-evidence path.
+* Registered PDF source responses now use inline PDF headers, and React source
+  links open in a new tab without a download attribute.
+* Public FastAPI document payloads no longer expose local `stored_path` or
+  `chunk_cache_path` fields.
+* React evidence cards use support labels in the user-facing confidence slot
+  and show `Open page` for registered PDF evidence.
 
 ### Known cleanup notes
 

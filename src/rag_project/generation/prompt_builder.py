@@ -65,6 +65,35 @@ def build_grounded_prompt(
     )
 
 
+def build_multi_intent_question(
+    original_query: str,
+    support_rows: list[dict[str, object]],
+) -> str:
+    """Build an answer question that tells the LLM how to handle sub-questions."""
+    rows = []
+    for row in support_rows:
+        evidence_ids = row.get("evidence_ids") or []
+        evidence_text = ", ".join(str(item) for item in evidence_ids) or "none"
+        rows.append(
+            f"{row.get('id')}. {row.get('question')} | "
+            f"support={row.get('support_label')} | evidence={evidence_text}"
+        )
+    return "\n".join(
+        [
+            "Answer the original multi-intent question by sub-question.",
+            f"Original query: {original_query}",
+            "Sub-question support plan:",
+            *rows,
+            (
+                "For each supported sub-question, synthesize a natural answer from the "
+                "final evidence and cite only the listed evidence markers. For any "
+                "sub-question marked insufficient evidence, say the materials do not "
+                "contain enough evidence for that part. Do not paste evidence verbatim."
+            ),
+        ]
+    )
+
+
 def _bounded_evidence_text(text: str, *, max_chars: int = 1200) -> str:
     """Keep prompts compact while preserving readable evidence boundaries."""
     normalized = " ".join(str(text or "").split())

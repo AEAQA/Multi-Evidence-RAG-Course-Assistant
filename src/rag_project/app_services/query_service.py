@@ -18,7 +18,13 @@ from rag_project.app_services.corpus_service import (
 from rag_project.app_services.provider_status import ProviderStatus, build_provider_status
 from rag_project.config import AppConfig, load_config
 from rag_project.generation.answer_generator import AnswerGenerator
-from rag_project.providers import create_llm_client, create_reranker_client
+from rag_project.generation.prompt_builder import build_multi_intent_question
+from rag_project.providers import (
+    create_intent_planner,
+    create_llm_client,
+    create_reranker_client,
+)
+from rag_project.query_planning.intent_planner import QueryPlan, SubQuestionPlan
 from rag_project.retrieval.reranker import RerankerClient
 from rag_project.retrieval.pipeline import RetrievalPipeline
 from rag_project.schemas import (
@@ -29,7 +35,11 @@ from rag_project.schemas import (
     RetrievalPipelineOutput,
     RetrievalResult,
     RetrievalTraceStage,
+    SubQuestionSupport,
 )
+
+MAX_FINAL_EVIDENCE = 5
+MAX_EVIDENCE_PER_SUBQUESTION = 1
 
 
 class MethodDiagnostic(BaseModel):
@@ -59,6 +69,9 @@ class WorkbenchState(BaseModel):
     final_evidence: list[EvidenceReference] = Field(default_factory=list)
     retrieval_trace: list[RetrievalTraceStage] = Field(default_factory=list)
     scope: dict[str, object] = Field(default_factory=dict)
+    query_plan: QueryPlan | None = None
+    sub_question_support: list[SubQuestionSupport] = Field(default_factory=list)
+    support_label: str = "insufficient evidence"
 
 
 class QueryService:
@@ -129,21 +142,80 @@ def _run_query(
     )
     pipeline_finished = perf_counter()
 
-    retrieval, retrieval_timings = pipeline.search_with_timing(
-        normalized_query, top_k=bounded_top_k
+    query_plan = create_intent_planner(config).plan(
+        normalized_query,
+        top_k=bounded_top_k,
+        available_evidence_types=["text", "image", "table_summary"],
     )
+    if not query_plan.sub_questions:
+        query_plan = query_plan.model_copy(
+            update={
+                "sub_questions": [
+                    SubQuestionPlan(
+                        id="Q1",
+                        question=normalized_query,
+                        retrieval_query=normalized_query,
+                        top_k=bounded_top_k,
+                    )
+                ]
+            }
+        )
+
+    if query_plan.is_multi_intent:
+        retrieval, retrieval_timings, sub_results = _run_planned_retrieval(
+            pipeline,
+            query_plan,
+            top_k=bounded_top_k,
+        )
+    else:
+        retrieval, retrieval_timings = pipeline.search_with_timing(
+            query_plan.sub_questions[0].retrieval_query,
+            top_k=bounded_top_k,
+        )
+        sub_results = {query_plan.sub_questions[0].id: retrieval.reranked_results}
     retrieval_finished = perf_counter()
 
     generation_started = perf_counter()
-    answer_results = _answer_candidate_results(
-        normalized_query,
-        retrieval.reranked_results,
-        max_results=bounded_top_k,
-    )
-    answer = AnswerGenerator(
-        llm_client=create_llm_client(config),
-        max_evidence=bounded_top_k,
-    ).generate(normalized_query, answer_results)
+    if query_plan.is_multi_intent:
+        final_evidence_results, sub_question_support = _select_multi_intent_final_results(
+            query_plan,
+            sub_results,
+            max_final_evidence=MAX_FINAL_EVIDENCE,
+            max_per_subquestion=MAX_EVIDENCE_PER_SUBQUESTION,
+        )
+        final_evidence = _build_final_evidence(final_evidence_results)
+        final_evidence = _attach_sub_question_ids(final_evidence, query_plan, sub_results)
+        sub_question_support = _bind_support_evidence_ids(
+            sub_question_support,
+            final_evidence,
+        )
+        synthesis_question = build_multi_intent_question(
+            normalized_query,
+            [
+                support.model_dump(mode="json")
+                for support in sub_question_support
+            ],
+        )
+        answer = AnswerGenerator(
+            llm_client=create_llm_client(config),
+            max_evidence=len(final_evidence_results) or 1,
+        ).generate(synthesis_question, final_evidence_results)
+    else:
+        answer_results = _answer_candidate_results(
+            normalized_query,
+            retrieval.reranked_results,
+            max_results=bounded_top_k,
+        )
+        answer = AnswerGenerator(
+            llm_client=create_llm_client(config),
+            max_evidence=bounded_top_k,
+        ).generate(normalized_query, answer_results)
+        sub_question_support = []
+        final_evidence_results = _final_evidence_results(
+            retrieval.reranked_results,
+            answer.evidence_chunks,
+        )
+        final_evidence = _build_final_evidence(final_evidence_results)
     finished = perf_counter()
 
     timing_ms = {
@@ -153,12 +225,8 @@ def _run_query(
         "generation": _elapsed_ms(generation_started, finished),
         "total": _elapsed_ms(started, finished),
     }
-    final_evidence_results = _final_evidence_results(
-        retrieval.reranked_results,
-        answer.evidence_chunks,
-    )
-    final_evidence = _build_final_evidence(final_evidence_results)
     answer = _attach_evidence_ids(answer, final_evidence)
+    support_label = _overall_support_label(answer, sub_question_support)
     retrieval_trace = _build_retrieval_trace(retrieval, timing_ms, final_evidence)
     diagnostics = build_method_diagnostics(retrieval)
     return WorkbenchState(
@@ -175,6 +243,9 @@ def _run_query(
         final_evidence=final_evidence,
         retrieval_trace=retrieval_trace,
         scope=_build_scope(corpus_summary, chunks),
+        query_plan=query_plan,
+        sub_question_support=sub_question_support,
+        support_label=support_label,
     )
 
 
@@ -200,6 +271,261 @@ def build_corpus_signature(chunks: list[Chunk]) -> str:
     ]
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _run_planned_retrieval(
+    pipeline: RetrievalPipeline,
+    query_plan: QueryPlan,
+    *,
+    top_k: int,
+) -> tuple[RetrievalPipelineOutput, dict[str, float], dict[str, list[RetrievalResult]]]:
+    outputs: list[RetrievalPipelineOutput] = []
+    timings: list[dict[str, float]] = []
+    sub_results: dict[str, list[RetrievalResult]] = {}
+
+    for sub_question in query_plan.sub_questions:
+        output, timing = pipeline.search_with_timing(
+            sub_question.retrieval_query,
+            top_k=max(1, min(sub_question.top_k or top_k, 10)),
+        )
+        filtered = _planned_answer_candidate_results(
+            sub_question,
+            output.reranked_results,
+            max_results=top_k,
+        )
+        sub_results[sub_question.id] = filtered
+        outputs.append(output)
+        timings.append(timing)
+
+    merged = RetrievalPipelineOutput(
+        bm25_results=_merge_results([output.bm25_results for output in outputs], top_k=top_k),
+        dense_results=_merge_results([output.dense_results for output in outputs], top_k=top_k),
+        fusion_results=_merge_results([output.fusion_results for output in outputs], top_k=top_k),
+        reranked_results=_merge_results(list(sub_results.values()), top_k=top_k * len(query_plan.sub_questions)),
+    )
+    return merged, _sum_timings(timings), sub_results
+
+
+def _merge_results(
+    groups: list[list[RetrievalResult]],
+    *,
+    top_k: int,
+) -> list[RetrievalResult]:
+    by_chunk: dict[str, RetrievalResult] = {}
+    for group in groups:
+        for result in group:
+            current = by_chunk.get(result.chunk_id)
+            if current is None or result.score > current.score:
+                by_chunk[result.chunk_id] = result
+    ranked = sorted(by_chunk.values(), key=lambda result: result.score, reverse=True)
+    return [
+        result.model_copy(update={"rank": index})
+        for index, result in enumerate(ranked[:top_k], start=1)
+    ]
+
+
+def _sum_timings(rows: list[dict[str, float]]) -> dict[str, float]:
+    keys = sorted({key for row in rows for key in row})
+    return {
+        key: round(sum(float(row.get(key, 0.0)) for row in rows), 3)
+        for key in keys
+    }
+
+
+def _planned_answer_candidate_results(
+    sub_question: SubQuestionPlan,
+    reranked_results: list[RetrievalResult],
+    *,
+    max_results: int,
+) -> list[RetrievalResult]:
+    valid = [
+        result
+        for result in reranked_results
+        if is_valid_table_evidence(result.chunk)
+    ]
+    if not valid:
+        return []
+
+    if sub_question.table_allowed:
+        tables = [result for result in valid if result.chunk.type == "table"]
+        other = [result for result in valid if result.chunk.type != "table"]
+        return (tables + other)[:max_results]
+    preferred = [
+        result
+        for result in valid
+        if result.chunk.type in {"text", "image"}
+        and (result.chunk.type != "image" or sub_question.image_allowed)
+    ]
+    tables = [result for result in valid if result.chunk.type == "table"]
+    return (preferred + tables)[:max_results]
+
+
+def _generate_multi_intent_answer(
+    query_plan: QueryPlan,
+    sub_results: dict[str, list[RetrievalResult]],
+    *,
+    max_results: int,
+) -> tuple[AnswerResponse, list[SubQuestionSupport]]:
+    answer_sections: list[str] = []
+    citations: list[Citation] = []
+    evidence_chunks: list[Chunk] = []
+    supports: list[SubQuestionSupport] = []
+
+    for sub_question in query_plan.sub_questions:
+        results = sub_results.get(sub_question.id, [])[:max_results]
+        chunks = [result.chunk for result in results]
+        if not chunks:
+            answer_sections.append(
+                f"{sub_question.id}. {sub_question.question}\n"
+                "The retrieved materials do not contain enough evidence for this part."
+            )
+            supports.append(
+                SubQuestionSupport(
+                    id=sub_question.id,
+                    question=sub_question.question,
+                    intent=sub_question.intent,
+                    retrieval_query=sub_question.retrieval_query,
+                    support_label="insufficient evidence",
+                    evidence_ids=[],
+                    insufficient_evidence=True,
+                )
+            )
+            continue
+
+        marker_tokens = [
+            f"[[{sub_question.id}:{chunk.chunk_id}]]"
+            for chunk in chunks
+        ]
+        sentence = _first_supported_sentence(chunks[0])
+        answer_sections.append(
+            f"{sub_question.id}. {sub_question.question}\n"
+            f"The materials support this part: {sentence} {marker_tokens[0]}."
+        )
+        citations.extend(
+            Citation(
+                chunk_id=chunk.chunk_id,
+                source_file=chunk.source_file,
+                page=chunk.page,
+            )
+            for chunk in chunks
+        )
+        evidence_chunks.extend(chunks)
+        label = "supported" if len(chunks) >= 1 else "insufficient evidence"
+        supports.append(
+            SubQuestionSupport(
+                id=sub_question.id,
+                question=sub_question.question,
+                intent=sub_question.intent,
+                retrieval_query=sub_question.retrieval_query,
+                support_label=label,
+                evidence_ids=[],
+                insufficient_evidence=False,
+            )
+        )
+
+    insufficient = all(item.insufficient_evidence for item in supports)
+    explanation = (
+        "Intent-aware query planning split the query into "
+        f"{len(query_plan.sub_questions)} sub-questions and retrieved evidence "
+        "for each part separately."
+    )
+    return (
+        AnswerResponse(
+            answer="\n\n".join(answer_sections),
+            citations=citations,
+            insufficient_evidence=insufficient,
+            evidence_chunks=_dedupe_chunks(evidence_chunks),
+            retrieval_explanation=explanation,
+        ),
+        supports,
+    )
+
+
+def _select_multi_intent_final_results(
+    query_plan: QueryPlan,
+    sub_results: dict[str, list[RetrievalResult]],
+    *,
+    max_final_evidence: int,
+    max_per_subquestion: int,
+) -> tuple[list[RetrievalResult], list[SubQuestionSupport]]:
+    selected: list[RetrievalResult] = []
+    supports: list[SubQuestionSupport] = []
+    used_keys: set[str] = set()
+
+    for sub_question in query_plan.sub_questions:
+        candidates = _rank_sub_question_candidates(
+            sub_question,
+            sub_results.get(sub_question.id, []),
+        )
+        picked_for_sub: list[RetrievalResult] = []
+        for candidate in candidates:
+            key = _dedupe_result_key(candidate)
+            if key in used_keys:
+                continue
+            if len(picked_for_sub) >= max_per_subquestion:
+                break
+            if len(selected) >= max_final_evidence:
+                break
+            used_keys.add(key)
+            picked_for_sub.append(candidate)
+            selected.append(candidate)
+
+        supports.append(
+            SubQuestionSupport(
+                id=sub_question.id,
+                question=sub_question.question,
+                intent=sub_question.intent,
+                retrieval_query=sub_question.retrieval_query,
+                support_label="supported" if picked_for_sub else "insufficient evidence",
+                evidence_ids=[],
+                insufficient_evidence=not picked_for_sub,
+            )
+        )
+
+    return selected, supports
+
+
+def _rank_sub_question_candidates(
+    sub_question: SubQuestionPlan,
+    candidates: list[RetrievalResult],
+) -> list[RetrievalResult]:
+    valid = [candidate for candidate in candidates if is_valid_table_evidence(candidate.chunk)]
+
+    def sort_key(result: RetrievalResult) -> tuple[int, float, int]:
+        type_bonus = 2 if result.chunk.type in {"text", "image"} else 0
+        if result.chunk.type == "table" and sub_question.table_allowed:
+            type_bonus = 1
+        if result.chunk.type == "table" and not sub_question.table_allowed:
+            type_bonus = -1
+        return (type_bonus, float(result.score), -int(result.rank))
+
+    return sorted(valid, key=sort_key, reverse=True)
+
+
+def _dedupe_result_key(result: RetrievalResult) -> str:
+    if result.chunk_id:
+        return f"chunk:{result.chunk_id}"
+    preview = _clean_display_text(_chunk_preview(result.chunk, max_chars=160)).lower()
+    return f"approx:{result.chunk.source_file}:{result.chunk.page}:{preview}"
+
+
+def _dedupe_chunks(chunks: list[Chunk]) -> list[Chunk]:
+    seen: set[str] = set()
+    deduped: list[Chunk] = []
+    for chunk in chunks:
+        if chunk.chunk_id in seen:
+            continue
+        seen.add(chunk.chunk_id)
+        deduped.append(chunk)
+    return deduped
+
+
+def _first_supported_sentence(chunk: Chunk) -> str:
+    preview = _chunk_preview(chunk, max_chars=240) or _clean_display_text(chunk.text)
+    if not preview:
+        return "the selected evidence is relevant"
+    parts = _split_sentences(preview)
+    return parts[0].rstrip(".!?") if parts else preview.rstrip(".!?")
 
 
 def _build_final_evidence(results: list[RetrievalResult]) -> list[EvidenceReference]:
@@ -233,6 +559,11 @@ def _attach_evidence_ids(
     if not evidence:
         return answer
     evidence_by_chunk = {item.chunk_id: item.evidence_id for item in evidence}
+    sub_marker_by_chunk = {
+        f"[[{item.sub_question_id}:{item.chunk_id}]]": f"[{item.evidence_id}]"
+        for item in evidence
+        if item.sub_question_id
+    }
     citations = [
         Citation(
             chunk_id=citation.chunk_id,
@@ -244,6 +575,8 @@ def _attach_evidence_ids(
     ]
     markers = [f"[{item.evidence_id}]" for item in evidence]
     answer_text = answer.answer
+    for placeholder, marker in sub_marker_by_chunk.items():
+        answer_text = answer_text.replace(placeholder, marker)
     if not answer.insufficient_evidence and not any(marker in answer_text for marker in markers):
         answer_text = _add_inline_markers(answer_text, markers)
     answer_text = _clean_answer_text(answer_text)
@@ -711,6 +1044,72 @@ def _query_prefers_tables(query: str) -> bool:
         "行",
     }
     return any(term in normalized for term in table_terms)
+
+
+def _attach_sub_question_ids(
+    evidence: list[EvidenceReference],
+    query_plan: QueryPlan,
+    sub_results: dict[str, list[RetrievalResult]],
+) -> list[EvidenceReference]:
+    chunk_to_sub: dict[str, str] = {}
+    for sub_question in query_plan.sub_questions:
+        for result in sub_results.get(sub_question.id, []):
+            chunk_to_sub.setdefault(result.chunk_id, sub_question.id)
+    return [
+        item.model_copy(
+            update={
+                "sub_question_id": chunk_to_sub.get(item.chunk_id),
+                "support_label": "supported",
+            }
+        )
+        for item in evidence
+    ]
+
+
+def _bind_support_evidence_ids(
+    supports: list[SubQuestionSupport],
+    final_evidence: list[EvidenceReference],
+) -> list[SubQuestionSupport]:
+    ids_by_sub: dict[str, list[str]] = {}
+    for item in final_evidence:
+        if item.sub_question_id:
+            ids_by_sub.setdefault(item.sub_question_id, []).append(item.evidence_id)
+
+    bound: list[SubQuestionSupport] = []
+    for support in supports:
+        evidence_ids = ids_by_sub.get(support.id, [])
+        if support.insufficient_evidence:
+            label = "insufficient evidence"
+        elif evidence_ids:
+            label = "supported"
+        else:
+            label = "insufficient evidence"
+        bound.append(
+            support.model_copy(
+                update={
+                    "evidence_ids": evidence_ids,
+                    "support_label": label,
+                    "insufficient_evidence": label == "insufficient evidence",
+                }
+            )
+        )
+    return bound
+
+
+def _overall_support_label(
+    answer: AnswerResponse,
+    supports: list[SubQuestionSupport],
+) -> str:
+    if not supports:
+        return "insufficient evidence" if answer.insufficient_evidence else "supported"
+    labels = {support.support_label for support in supports}
+    if labels == {"supported"}:
+        return "supported"
+    if labels == {"insufficient evidence"}:
+        return "insufficient evidence"
+    if "supported" in labels or "low support" in labels:
+        return "partially supported"
+    return "low support"
 
 
 def _elapsed_ms(start: float, end: float) -> float:

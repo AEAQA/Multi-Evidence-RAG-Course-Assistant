@@ -6,7 +6,9 @@ import uuid
 from rag_project.config import AppConfig, load_config
 from rag_project.generation.llm_client import MockLLMClient
 from rag_project.generation.siliconflow_client import SiliconFlowLLMClient
-from rag_project.providers import create_llm_client, create_reranker_client
+from rag_project.providers import create_intent_planner, create_llm_client, create_reranker_client
+from rag_project.query_planning.intent_planner import DeterministicIntentPlanner
+from rag_project.query_planning.siliconflow_intent_planner import SiliconFlowIntentPlanner
 from rag_project.retrieval.reranker import MockRerankerClient
 from rag_project.retrieval.siliconflow_reranker import SiliconFlowRerankerClient
 from rag_project.schemas import Chunk, ChunkMetadata
@@ -70,6 +72,7 @@ def test_provider_factory_uses_mock_without_key() -> None:
 
     assert isinstance(create_llm_client(config), MockLLMClient)
     assert isinstance(create_reranker_client(config), MockRerankerClient)
+    assert isinstance(create_intent_planner(config), DeterministicIntentPlanner)
 
 
 def test_provider_factory_uses_siliconflow_when_configured() -> None:
@@ -84,6 +87,17 @@ def test_provider_factory_uses_siliconflow_when_configured() -> None:
 
     assert isinstance(create_llm_client(config), SiliconFlowLLMClient)
     assert isinstance(create_reranker_client(config), SiliconFlowRerankerClient)
+
+
+def test_intent_planner_factory_uses_siliconflow_when_configured() -> None:
+    config = AppConfig(
+        app_mode="api",
+        intent_planner_provider="siliconflow",
+        intent_planner_model="Qwen/Qwen3-30B-A3B-Instruct-2507",
+        siliconflow_api_key="secret-key",
+    )
+
+    assert isinstance(create_intent_planner(config), SiliconFlowIntentPlanner)
 
 
 def test_siliconflow_llm_parses_fake_response() -> None:

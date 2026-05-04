@@ -6,6 +6,13 @@ from rag_project.audio.asr_client import ASRClient, MockASRClient
 from rag_project.config import AppConfig
 from rag_project.generation.llm_client import LLMClient, MockLLMClient
 from rag_project.generation.siliconflow_client import SiliconFlowLLMClient
+from rag_project.query_planning.intent_planner import (
+    DeterministicIntentPlanner,
+    IntentPlanner,
+)
+from rag_project.query_planning.siliconflow_intent_planner import (
+    SiliconFlowIntentPlanner,
+)
 from rag_project.retrieval.reranker import MockRerankerClient, RerankerClient
 from rag_project.retrieval.siliconflow_reranker import SiliconFlowRerankerClient
 from rag_project.vision.caption_client import (
@@ -25,6 +32,27 @@ def create_llm_client(config: AppConfig) -> LLMClient:
             timeout=config.api_timeout_seconds,
         )
     return MockLLMClient()
+
+
+def create_intent_planner(config: AppConfig) -> IntentPlanner:
+    """Create an intent planner with deterministic local fallback."""
+    provider = config.intent_planner_provider.lower()
+    if (
+        config.app_mode == "api"
+        and provider == "siliconflow"
+        and bool(config.intent_planner_model)
+        and config.intent_planner_model != "mock-intent-planner"
+        and config.siliconflow_ready
+    ):
+        return SiliconFlowIntentPlanner(
+            api_key=config.siliconflow_api_key,
+            model=config.intent_planner_model,
+            base_url=config.intent_planner_base_url,
+            timeout=config.api_timeout_seconds,
+            temperature=config.intent_planner_temperature,
+            max_tokens=config.intent_planner_max_tokens,
+        )
+    return DeterministicIntentPlanner()
 
 
 def create_reranker_client(config: AppConfig) -> RerankerClient:

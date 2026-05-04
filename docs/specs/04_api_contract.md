@@ -287,6 +287,7 @@ GET  /api/status
 GET  /api/documents
 POST /api/documents/upload
 DELETE /api/documents/{doc_id}
+GET  /api/documents/{doc_id}/file
 POST /api/query
 GET  /api/evaluation/summary
 POST /api/evaluation/run
@@ -378,12 +379,28 @@ combined
 
 `POST /api/query` response includes:
 
-* `answer.text`, `answer.style`, `answer.grounding_status`;
+* `answer.text`, `answer.style`, `answer.grounding_status` and
+  `answer.generation_mode`;
 * `citations` with `evidence_id`, `chunk_id`, `doc_id`, `source_file`, `page`;
 * `final_evidence` rows labeled `E1`, `E2`, `E3`;
+* `query_plan`, `sub_question_support` and `support_label` when intent-aware
+  planning is active;
 * `retrieval_trace` stages for BM25, Dense, Fusion, Reranker and Final Evidence;
 * `retrieval.bm25`, `retrieval.dense`, `retrieval.fusion`, `retrieval.reranked`;
 * `timing`, `scope`, `diagnostics`, `provider_status`, `warnings`, `suggestions`.
+
+`GET /api/documents/{doc_id}/file`:
+
+* serves only registered uploaded PDF files from the configured upload
+  directory;
+* does not expose local filesystem paths;
+* returns 404 for missing records/files and 400 for non-PDF documents;
+* returns `Content-Type: application/pdf` and `Content-Disposition: inline`
+  so browsers can open the PDF viewer instead of downloading by default;
+* supports frontend page jumps with `/api/documents/{doc_id}/file#page={page}`.
+
+Document list/upload responses expose safe document metadata only. Local
+`stored_path` and `chunk_cache_path` are not part of the public React contract.
 
 Upload behavior:
 
@@ -404,6 +421,87 @@ Stage 5B table evidence quality:
   terms;
 * if only invalid table chunks are retrieved, `/api/query` should return
   `answer.grounding_status = "insufficient_evidence"` rather than citing them.
+
+Stage 6 intent-aware query planning:
+
+* `/api/query` runs an intent planner before retrieval.
+* Single-intent questions remain a single retrieval unit.
+* Multi-intent questions such as `what is word2vec? and what is transformer?`
+  are decomposed into `sub_questions`, each with its own `retrieval_query`,
+  `intent`, evidence preferences and Top-k.
+* Retrieval candidates remain available in method diagnostics, but user-facing
+  cited evidence has a global budget of at most five final evidence cards and
+  at most one final evidence card per sub-question in the current UI contract.
+* Final evidence is deduplicated by chunk id, or by source/page/cleaned preview
+  when a chunk id is unavailable.
+* Multi-intent final answers are still produced by the configured answer LLM
+  in API mode. The planner only decomposes and rewrites the query; it does not
+  answer the user question.
+* The default planner is deterministic and offline. Optional SiliconFlow JSON
+  planning may be enabled through environment variables, but invalid JSON,
+  missing API keys or provider failure must fall back to deterministic planning.
+* Multi-intent query responses include:
+
+```json
+{
+  "query_plan": {
+    "original_query": "what is word2vec? and what is transformer?",
+    "is_multi_intent": true,
+    "sub_questions": [
+      {
+        "id": "Q1",
+        "question": "what is word2vec?",
+        "intent": "definition",
+        "retrieval_query": "word2vec definition concept",
+        "evidence_preference": ["text", "image"],
+        "table_allowed": false,
+        "image_allowed": true,
+        "top_k": 3
+      }
+    ],
+    "answer_style": "sectioned",
+    "requires_partial_support_status": true
+  },
+  "sub_question_support": [
+    {
+      "id": "Q1",
+      "question": "what is word2vec?",
+      "intent": "definition",
+      "retrieval_query": "word2vec definition concept",
+      "support_label": "supported",
+      "evidence_ids": ["E1"],
+      "insufficient_evidence": false
+    }
+  ],
+  "support_label": "partially supported"
+}
+```
+
+Support labels are user-facing evidence support states:
+
+```text
+supported
+partially supported
+insufficient evidence
+low support
+```
+
+Raw BM25/Dense/Fusion/Reranker scores remain available in diagnostics and
+developer details, but should not be presented as unified answer confidence.
+
+`answer.generation_mode` explains how the visible answer was produced:
+
+```text
+llm
+mock
+fallback
+none
+```
+
+`llm` means a configured external answer-generation provider returned the
+answer. `mock` means local/offline deterministic generation was used.
+`fallback` means a configured provider failed and the mock generator produced
+the answer. `none` is used for no-evidence responses.
 
 Test isolation:
 
@@ -481,8 +579,9 @@ Frontend assumptions:
 * `documents[].doc_id`, `filename`, `chunk_count` and `type_counts` are enough
   to render the Knowledge Base panel;
 * `POST /api/query` must keep returning `answer.text`, `citations`,
-  `final_evidence`, `retrieval_trace`, `retrieval`, `timing`, `scope` and
-  diagnostics for Evidence Intelligence;
+  `answer.generation_mode`, `citations`, `final_evidence`,
+  `retrieval_trace`, `retrieval`, `timing`, `scope` and diagnostics for
+  Evidence Intelligence;
 * inline markers in `answer.text` are resolved through
   `citations[].evidence_id` and `final_evidence[].evidence_id`;
 * if a marker cannot be resolved, React leaves the marker visible as plain text.

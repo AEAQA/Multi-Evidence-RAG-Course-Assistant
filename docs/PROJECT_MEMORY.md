@@ -158,6 +158,16 @@ Stage 3: React three-panel product UI complete
 * Invalid table chunks with placeholders such as `(no text preview)` or `Table extracted from PDF.` are filtered before answer generation and cannot become `E1`/`E2`/`E3`.
 * Table chunks now carry optional `table_summary`, `table_markdown` and `cells` metadata when newly ingested; older processed chunk caches need re-ingest/re-upload to gain these fields.
 * React/FastAPI query defaults now use Top-k 3 for a tighter evidence set and lower default generation load.
+* Intent-aware query planning is implemented before retrieval. The deterministic planner handles simple multi-question inputs and optional SiliconFlow JSON planning falls back to deterministic planning on missing keys, API failure or invalid JSON.
+* Multi-intent queries retrieve each sub-question separately, return `query_plan`, `sub_question_support` and overall `support_label`, and answer sections can report insufficient evidence for only one part.
+* Evidence cards can open registered uploaded PDFs through `/api/documents/{doc_id}/file#page={page}` without exposing local file paths.
+* Multi-intent final evidence is capped for the user-facing panel so internal
+  per-sub-question candidates remain in diagnostics without producing E1-E9
+  style evidence overload.
+* `/api/query` exposes `answer.generation_mode` so React can distinguish real
+  LLM synthesis from mock, fallback and no-evidence generation.
+* The PDF source endpoint returns inline PDF responses and React opens source
+  pages in a new tab without a download attribute.
 * Answer text cleaned of hash patterns, pipe characters, internal IDs and OCR noise.
 * CitationText shows unresolved citation warnings when markers do not map to evidence.
 * RetrievalFlow shows stage contribution counts, Final badge, and relative score within method labels.
@@ -171,6 +181,12 @@ Stage 3: React three-panel product UI complete
 * Full Python test suite passes with 94 tests after Stage 5B table evidence filtering.
 * Frontend build passes after Stage 5B.
 * React mocked frontend tests pass with 12 tests after Stage 5B.
+* React mocked frontend tests pass with 13 tests after intent-aware query support and PDF page links.
+* 33 focused planner/query/FastAPI/provider tests pass after intent-aware query support.
+* Frontend production build passes after intent-aware query support.
+* Full Python test suite passes with 103 tests after intent-aware query support.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after intent-aware query support and rewrites retrieval metrics, latency metrics and error cases reports.
+* `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after intent-aware query support.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe scripts\dev.py eval` completes after Stage 5B table evidence filtering and rewrites retrieval metrics, latency metrics and error cases reports.
 * `C:\Users\liangy\miniconda3\envs\rag-study-assistant\python.exe -m compileall scripts src tests app` passes after Stage 5B.
 
