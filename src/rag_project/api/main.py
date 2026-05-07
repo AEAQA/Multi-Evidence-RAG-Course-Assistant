@@ -29,7 +29,7 @@ from rag_project.evaluation.runner import (
     write_evaluation_reports,
 )
 from rag_project.evaluation.sample_corpus import build_sample_evaluation_chunks
-from rag_project.schemas import RetrievalResult
+from rag_project.schemas import Chunk, RetrievalResult
 
 ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_REGISTRY_PATH = ROOT / "data" / "processed" / "corpus_registry.json"
@@ -373,9 +373,17 @@ def _result_rows(results: list[RetrievalResult]) -> list[dict[str, Any]]:
                 "page": chunk.page,
                 "type": chunk.type,
                 "preview": _preview(chunk.text),
+                "image_url": _result_image_url(chunk),
             }
         )
     return rows
+
+
+def _result_image_url(chunk: Chunk) -> str | None:
+    image_path = chunk.metadata.image_path
+    if not image_path:
+        return None
+    return f"/api/static/images/{Path(image_path).name}"
 
 
 def _source_url(evidence: Any) -> str | None:

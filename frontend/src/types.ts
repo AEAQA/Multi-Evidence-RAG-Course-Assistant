@@ -108,6 +108,7 @@ export interface RetrievalRow {
   page?: number | null;
   type: string;
   preview: string;
+  image_url?: string | null;
 }
 
 export interface MethodDiagnostic {

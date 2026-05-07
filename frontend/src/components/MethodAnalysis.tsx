@@ -28,6 +28,18 @@ export function MethodRows({ rows }: { rows: RetrievalRow[] }) {
             <span>{row.source_file}</span>
           </div>
           <p>{row.preview}</p>
+          {row.type === "image" && row.image_url ? (
+            <div className="evidence-thumb">
+              <img
+                src={row.image_url}
+                alt={`Evidence ${row.chunk_id} image`}
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+          ) : null}
           <div className="evidence-meta compact">
             <span>{displayEvidenceType(row.type)}</span>
           </div>

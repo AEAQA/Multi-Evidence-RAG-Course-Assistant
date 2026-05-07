@@ -35,7 +35,7 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [queryError, setQueryError] = useState<string | null>(null);
-  const [topK, setTopK] = useState(3);
+  const [topK, setTopK] = useState(5);
   const [evidenceRatio, setEvidenceRatio] = useState(RATIO_DEFAULT);
   const [showMaterials, setShowMaterials] = useState(false);
   const [showEvidence, setShowEvidence] = useState(false);
